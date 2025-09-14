@@ -18,23 +18,108 @@ Se busca:
 Header: ["Report ID", "Department", "Employee", "Report Type", "Amount", "Transaction date", "Report Date"]
 """
 import time
-Timer0 = time.time()
 import pandas as pd
-ruta_completa = r"C:\Users\criis\Documents\Coding\Ejemplo Transacciones por report.csv"
-df = pd.read_csv(ruta_completa, encoding="latin-1", header=0)
-#2.- Almacenar en un diccionario los departamentos.
-dict_depto = {}
-for valor in df.iloc[:,1]:
-    if valor not in dict_depto:
-        dict_depto[valor] = None
-#3.- Crea un diccionario por departamento con los montos.
-serie_depto =  df.groupby("Department")[df.columns[4]].sum()#.to_dict() #Agrupa y crea una serie con las sumas.
-serie_depto.name = "Amount sum" 
-print(serie_depto)
+import matplotlib
+import matplotlib.pyplot as plt
+from functools import partial
+Timer0 = time.time()
 
-dict_depto = serie_depto.to_dict() ##Convierte la serie a diccionario.
+class TablaDeDatos: ##Crea una tabla en matplotlib.
+    def __init__(self, df): ##Init es un objeto que se inicializa al crear una clase.
+        # Solo guardamos el DataFrame, no creamos nada aún
+        self.df = df ##Guardamos el dataframe.
+        self.fig = None ##preparamos fig
+        self.ax = None ##lugar para dibujar
+        self.tabla = None ##espacio para la tabla
+
+    def crear(self):
+        fig, ax = plt.subplots(figsize=(12, 4))#ax == un eje es el lienzo donde se dibuja.
+        ax.axis("off")  # controla la visualización de bordes, ticks, etc.
+        # Crear tabla con los datos de tu DataFrame
+        tabla = ax.table( ##ax.table dibuja una tabla sobre el eje y devuelve un objeto Table
+            cellText=df_report.values,       #valores de la tabla, nuestro dataframe en este caso.
+            colLabels=df_report.columns,     #nombres de columnas
+            loc="center")                     #posición centrada
+        # Ajustar formato
+        tabla.auto_set_font_size(False)
+        tabla.set_fontsize(10)
+        tabla.scale(1.2, 1.2) #escala (ancho, alto)
 
 
-Timer1 = time.time()
-ExecTime = Timer1-Timer0
-print(f"Tiempo de ejecución == {ExecTime}")
+#Callback: cuando hagas click, buscamos si el click “cayó” dentro de alguna barra
+def on_click(event):
+    if event.inaxes is not ax:  # ignora clics fuera del eje
+        return
+    for rect in bars:
+        contains, _ = rect.contains(event)  # ¿el click está dentro del rectángulo?
+        if contains:
+            print(f"Click en barra: {rect._dept}")
+            rect.set_linewidth(1.5)
+            rect.set_edgecolor("black")
+            fig.canvas.draw_idle() ##Esto pide el redibujo
+            
+            timer = fig.canvas.new_timer(interval=100)
+            def restore_edge():
+                rect.set_edgecolor("None")  # quitamos borde, para hacer como un parpadeo
+                fig.canvas.draw_idle()
+            timer.add_callback(restore_edge)
+            timer.start()
+
+
+            break
+
+
+if __name__ == "__main__":
+    ruta_completa = r"C:\Users\criis\Documents\Coding\Ejemplo Transacciones por report.csv"
+    df = pd.read_csv(ruta_completa, encoding="latin-1", header=0)
+    #2.- Almacenar en un diccionario los departamentos.
+    dict_depto = {}
+    for valor in df.iloc[:,1]:
+        if valor not in dict_depto:
+            dict_depto[valor] = None
+    #3.- Crea un diccionario por departamento con los montos.
+    serie_depto = df.groupby("Department")[df.columns[4]].sum()#.to_dict() #Agrupa y crea una serie con las sumas.
+    # dict_depto = serie_depto.to_dict() ##Convierte la serie a diccionario.
+
+    #Sacamos medidas creando series.
+    DE = df.groupby("Department")[df.columns[4]].std()
+    promedio = df.groupby("Department")[df.columns[4]].mean()
+
+
+    #Convertimos series a dataframe
+    DE_idx = DE.to_frame(name="Standard deviation").reset_index()
+    promedio_idx = promedio.to_frame(name="Average").reset_index()
+    CV = ((DE_idx["Standard deviation"] / promedio_idx["Average"]) * 100).to_frame(name="CV").reset_index()
+
+    #Coeficiente de variacion = (DE/avg)*100
+    # CV = ((DE_idx["Standard_deviation"] / promedio_idx["Average"]) * 100).to_frame(name="CV").reset_index()
+
+    df_report = df.groupby("Department")[df.columns[4]].agg(Monto_por_departamento="sum").reset_index()
+    df_report = df_report.merge(DE_idx, on="Department", how="left")
+    df_report = df_report.merge(promedio_idx, on="Department", how="left")
+
+    ax = df_report.plot(kind="bar", x="Department", y="Monto_por_departamento", legend=False) ##Crea las gráficas
+    fig = ax.figure
+    bars = ax.containers[0] #todas las barras
+    for rect, dept in zip(bars, df_report["Department"]):
+        rect._dept = dept  # le cuelgas el nombre del depto a cada barra
+    
+    for col in df_report.iloc[:,[1,2,3]].columns: ##Le damos formato de número al dataframe.
+        df_report[col] = df_report[col].map("${:,.2f}".format)
+    
+    cid = fig.canvas.mpl_connect("button_press_event", on_click)
+    # df_report = df_report.merge(CV, on="Department", how="left")
+    # df_report = df.groupby("Department")[df.columns[4]].agg(amount_sum = "sum", amount_avg= "mean").reset_index()
+    
+
+
+    Timer1 = time.time()
+    ExecTime = Timer1-Timer0
+    print(f"Tiempo de ejecución == {ExecTime}")
+
+    plt.show()
+    # print(df_report)
+    # print(df_report.to_string())
+
+    print(" --- Saliendo --- ")
+    print()
