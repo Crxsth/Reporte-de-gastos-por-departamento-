@@ -28,12 +28,15 @@ Timer0 = time.time()
 class TablaDeDatos: ##Crea una tabla en matplotlib y le da formato de moneda
     def __init__(self, df): ##Init es un objeto que se inicializa al crear una clase.
         #Inicializamos objetos
-        self.df = df ##Guardamos el dataframe.
+        self.df = df.copy() ##Guardamos el dataframe.
         self.fig = None ##preparamos fig
         self.ax = None ##lugar para dibujar
         self.tabla = None ##espacio para la tabla
+        
 
     def crear(self):
+        for col in self.df.iloc[:, 1:].columns: ##Da formato de moneda, pero convierte en string.
+            self.df[col] = self.df[col].map("${:,.2f}".format)
         fig, ax = plt.subplots(figsize=(12, 4))#ax == un eje es el lienzo donde se dibuja.
         ax.axis("off")  # contro1la la visualización de bordes, ticks, etc.
         # Crear tabla con los datos de tu DataFrame
@@ -45,12 +48,11 @@ class TablaDeDatos: ##Crea una tabla en matplotlib y le da formato de moneda
         tabla.auto_set_font_size(False)
         tabla.set_fontsize(10)
         tabla.scale(1.2, 1.2) #escala (ancho, alto)
-        for col in self.df.iloc[:, 1:].columns: ##Da formato de moneda, pero convierte en string.
-            self.df[col] = self.df[col].map("${:,.2f}".format)
-            
+        for key, cell in tabla.get_celld().items(): ##Centramos
+            cell.set_text_props(ha="center", va="center")    
 
-def on_click(event): #Acciona evento (tilt) al hacer click.
-def on_click(event, ax, bars, fig):
+
+def on_click(event, ax, bars, fig): #Acciona evento (tilt) al hacer click.
     if event.inaxes is not ax:  # ignora clics fuera del eje
         return
     for rect in bars:
@@ -69,15 +71,15 @@ def on_click(event, ax, bars, fig):
             timer.start()
             break
 
+
 def crear_graph_bars(df): ##Esta función crea gráficas de barra
-    ax = df.plot(kind="bar", x="Department", y="Monto_por_departamento", legend=False) ##Crea las gráficas
+    ax = df.plot(kind="bar", x="Department", y="Monto por departamento", legend=False) ##Crea las gráficas
     fig = ax.figure
     bars = ax.containers[0] #todas las barras
     for rect, dept in zip(bars, df["Department"]):
         rect._dept = dept  # le cuelgas el nombre del depto a cada barra
     cid = fig.canvas.mpl_connect("button_press_event", 
         lambda event:on_click(event, ax, bars,fig))
-    
     return fig, ax, bars, cid
 
 
@@ -97,20 +99,13 @@ if __name__ == "__main__":
 
     #Armamos el dataframe
     df_report = df.groupby("Department")[df.columns[4]].agg(Monto_por_departamento="sum").reset_index()
+    df_report = df_report.rename(columns={"Monto_por_departamento": "Monto por departamento"})
     df_report = df_report.merge(DE_idx, on="Department", how="left")
     df_report = df_report.merge(promedio_idx, on="Department", how="left")
     # df_report = df_report.merge(CV, on="Department", how="left")
-    # df_report = df.groupby("Department")[df.columns[4]].agg(amount_sum = "sum", amount_avg= "mean").reset_index()
-    # tabla = TablaDeDatos(df_report)
-    # tabla.crear()
-    crear_graph_bars(df_report)
-
-    
-    
-    
-    
-    
-    
+    tabla = TablaDeDatos(df_report)
+    tabla.crear()
+    crear_graph_bars(df_report)    
     
 
 
