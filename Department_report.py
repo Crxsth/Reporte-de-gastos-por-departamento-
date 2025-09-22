@@ -32,24 +32,30 @@ class TablaDeDatos: ##Crea una tabla en matplotlib y le da formato de moneda
         self.fig = None ##preparamos fig
         self.ax = None ##lugar para dibujar
         self.tabla = None ##espacio para la tabla
-        
 
-    def crear(self):
-        for col in self.df.iloc[:, 1:].columns: ##Da formato de moneda, pero convierte en string.
-            self.df[col] = self.df[col].map("${:,.2f}".format)
+    def crear(self): # Crear tabla con los datos del DataFrame
+        df_formatted = self.df.copy() ##Copiamos la tabla para trabajar con ella.
+        for col in df_formatted.iloc[:, 1:].columns: ##Da formato de moneda, pero convierte en string.
+            if col != "CV":
+                df_formatted[col] = df_formatted[col].map("${:,.2f}".format) ##col es el nombre de cada columna
         fig, ax = plt.subplots(figsize=(12, 4))#ax == un eje es el lienzo donde se dibuja.
         ax.axis("off")  # contro1la la visualización de bordes, ticks, etc.
-        # Crear tabla con los datos de tu DataFrame
         tabla = ax.table( ##ax.table dibuja una tabla sobre el eje y devuelve un objeto Table
-            cellText=self.df.values,       #valores de la tabla, nuestro dataframe en este caso.
-            colLabels=self.df.columns,     #nombres de columnas
-            loc="center")                     #posición centrada
+            cellText=df_formatted.values, #valores de la tabla, nuestro dataframe en este caso.
+            colLabels=df_formatted.columns, #nombres de columnas
+            loc="center") #posición centrada
         # Ajustar formato
         tabla.auto_set_font_size(False)
         tabla.set_fontsize(10)
         tabla.scale(1.2, 1.2) #escala (ancho, alto)
-        for key, cell in tabla.get_celld().items(): ##Centramos
-            cell.set_text_props(ha="center", va="center")    
+        ##Key = posición, Cell = objeto celda; tenemos que acceder a cada celda y centrarla.
+        for key, cell in tabla.get_celld().items(): ##Itera en cada celda y la centra
+            cell.set_text_props(ha="center", va="center")
+        
+        
+    def add_CV(self):
+        self.df = self.df.merge(CV_idx, on= "Department", how="left")
+        self.df["CV"] = self.df["CV"].map("{:.2f}%".format)
 
 
 def on_click(event, ax, bars, fig): #Acciona evento (tilt) al hacer click.
@@ -81,7 +87,7 @@ def crear_graph_bars(df): ##Esta función crea gráficas de barra
     cid = fig.canvas.mpl_connect("button_press_event", 
         lambda event:on_click(event, ax, bars,fig))
     return fig, ax, bars, cid
-
+    
 
 if __name__ == "__main__":
     ruta_completa = r"C:\Users\criis\Documents\Coding\Ejemplo Transacciones por report.csv"
@@ -94,20 +100,24 @@ if __name__ == "__main__":
     #Convertimos series a dataframe
     DE_idx = DE.to_frame(name="Standard deviation").reset_index()
     promedio_idx = promedio.to_frame(name="Average").reset_index()
-    CV = ((DE_idx["Standard deviation"] / promedio_idx["Average"]) * 100) #Coeficiente de variacion = (DE/avg)*100
+    CV = (DE/promedio)*100 #Coeficiente de variacion = (DE/avg)*100
     CV_idx = CV.to_frame(name="CV").reset_index()
-
+    
     #Armamos el dataframe
     df_report = df.groupby("Department")[df.columns[4]].agg(Monto_por_departamento="sum").reset_index()
     df_report = df_report.rename(columns={"Monto_por_departamento": "Monto por departamento"})
     df_report = df_report.merge(DE_idx, on="Department", how="left")
     df_report = df_report.merge(promedio_idx, on="Department", how="left")
-    # df_report = df_report.merge(CV, on="Department", how="left")
-    tabla = TablaDeDatos(df_report)
-    tabla.crear()
-    crear_graph_bars(df_report)    
+    print(df_report)
     
-
+    
+    ##Matplotlib
+    plt.rcParams["font.family"] = "Bookman Old Style" ##Font
+    tabla = TablaDeDatos(df_report)
+    crear_graph_bars(df_report)
+    tabla.add_CV()
+    tabla.crear()
+    
 
     Timer1 = time.time()
     ExecTime = Timer1-Timer0
