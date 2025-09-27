@@ -25,6 +25,7 @@ from tkinter import filedialog
 import streamlit as st
 import sys
 import os
+import re
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
@@ -49,8 +50,15 @@ class ReporteDf:
     def fix_dates(self):
         for i, col in enumerate(self.df.columns):
             if "date" in col.lower():
-                self.df[col] = pd.to_datetime(self.df[col], errors="coerce") 
-                self.log.append(f"date_change[{i}]")
+                self.df = string_to_number(self.df, [col]) ##Convertir a number.
+                s_base = self.df[col]
+                s_converted =pd.to_datetime(
+                    s_base, unit="D", origin="1899-12-30", errors="coerce"
+                )
+                resultado = s_converted.where(s_converted.notna(), s_base)
+                resultado = resultado.dt.strftime("%d-%b-%y")
+                self.df[col] = resultado
+                self.log.append(f"date_change[{i}]-[{col}]")
         return self
         
     def fix_numbers(self):
@@ -59,10 +67,46 @@ class ReporteDf:
             serie_converted = pd.to_numeric(serie_base.str.replace(
             r"[^\d\.-]", "", regex=True), errors="coerce")
             number_percent = serie_converted.notna().mean()  #% de valores numbers.
-            if number_percent>=0.95:
+            if number_percent>=0.95 or "amount" in col.lower():
                 self.df[col] = serie_converted
-                self.log.append(f"number_change[{i}]")
+                self.log.append(f"number_change[{i}]-[{col}]")
         return self
+
+    
+def vista_previa(df, n_default=20): #Vista previa de los datos.
+    col_dict = {}
+    st.subheader("Vista previa")
+    for col in df.columns:
+        if "amount" in col.lower():
+            col_dict[col] = st.column_config.NumberColumn(col, format="${:,.2f")
+    n_rows = st.slider(5,100,n_default,5)
+    st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
+    
+    
+def string_to_number(df, columnas):##Convierte columnas a número
+    pattern1 = r"^-?\d{1,3}(?:,\d{3})+\.\d{2}$" # format: "#,##0.00"
+    pattern2 = r"^-?\d+\.\d{2}$" # format: "#,##0.00"
+    for col in columnas:
+        if col in df.columns:
+            s_base = df[col].astype(str).str.strip() #Forzamos a string, evitando errores.
+            mask1 = s_base.str.contains(pattern1, na=False)
+            mask2 = s_base.str.contains(pattern2, na=False)
+            # resultado = s_base.str.contains(pattern1 + "|" + pattern2, na=False) 
+            lista_var = []
+            for valor in s_base: ##Convierte dependiendo del patrón.
+                if re.fullmatch(pattern1,valor):
+                    lista_var.append(float(valor.replace(",","")))
+                elif re.fullmatch(pattern2, valor):
+                    lista_var.append(float(valor))
+                else: ##Try to see if it's an integer:
+                    try: 
+                        valor = int(valor)
+                    except:
+                        pass
+                    lista_var.append(valor)
+            df[col] = lista_var
+    return df
+
 
 def obtener_dataframe(): ##Function that selects a file to work with. 
     #Using streamlit as it crashed.
@@ -78,7 +122,7 @@ def obtener_dataframe(): ##Function that selects a file to work with.
     else:
         archivo_leido = pd.DataFrame(leer_file(archivo_base))
     return archivo_leido
-
+    
 
 def main():
     Timer0 = time.time()
@@ -86,20 +130,22 @@ def main():
     
     archivo_completo = ReporteDf(archivo_base) ##Es una instancia con propiedades.
     archivo_completo.fix_header() ##if header = none or int, header = iloc[0]
-    archivo_completo.fix_dates() ##if string:"date" in columns, entirecolumn = date.
-    dataframe = archivo_completo.df.copy()
-    # exceldate_todate(archivo_completo)
-    lista_var = []
-    for dato in archivo_completo.df.iloc[1]:
-        valorvar = type(dato)
-        lista_var.append(valorvar)
-    st.write("Datos de fila 1:", lista_var)
-    columnas_nonumericas = []
+    archivo_completo.fix_dates()
+    archivo_completo.fix_numbers()
+    # archivo_completo.df.style.format({"Amount": "${:,.2f}"})
+    # df.style.format("${:,.2f}")
     
+    # archivo_completo.fix_dates() ##if string:"date" in columns, entirecolumn = date.
+    columnas_nonumericas = []
+
     st.title("Reporte de gastos")
-    st.subheader("Vista previa"); st.archivo_completo(archivo_completo.head(5))
+    st.subheader("Vista previa de:"); st.dataframe(archivo_completo.df.head(20))
+    st.write(archivo_completo.log)
+    st.write(f"La columna amount es: {type(archivo_completo.df["Amount"][2])}")
+    
     columnas_numericas = archivo_completo.df.select_dtypes(include="number").columns.to_list() ##Obtenemos las columnas numéricas
     # st.write("Tipos de datos:",archivo_completo.head(5))
+    
     
     for columna in archivo_completo.df.columns:
         if columna not in columnas_numericas:
@@ -108,6 +154,26 @@ def main():
     metrics = st.selectbox("Columnas numericas", columnas_numericas, index=0)
     st.success(f"La información está agrupada por: **{group}** | Métrica: **{metrics}**")
     
+    
+    # df_vista, col_cfg = archivo_completo.vista_formateada(N_ROWS)
+    # st.dataframe(df_vista, column_config=col_cfg, hide_index=True)
+    
+    
+    # Slider para elegir cuántas filas mostrar
+    # N_ROWS = st.slider(
+        # "Número de filas a mostrar",
+        # min_value=5,     # mínimo
+        # max_value=100,   # máximo
+        # value=20,        # valor por defecto
+        # step=5           # de cuánto en cuánto sube
+    # )
+    # st.dataframe(
+        # archivo_completo.df.head(N_ROWS),
+        # column_config={
+            # "Amount": st.column_config.NumberColumn("Amount", format="$%.2f")
+        # },
+        # hide_index=True
+    # )
     
     
     Timer1 = time.time()
