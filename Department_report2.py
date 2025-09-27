@@ -46,7 +46,7 @@ class ReporteDf:
             self.df.columns = self.df.iloc[0] ##Primera fila como encabezado
             self.df = self.df.drop(self.df.index[0]) ##Elimina primera fila.
         return self
-    
+
     def fix_dates(self):
         for i, col in enumerate(self.df.columns):
             if "date" in col.lower():
@@ -60,7 +60,7 @@ class ReporteDf:
                 self.df[col] = resultado
                 self.log.append(f"date_change[{i}]-[{col}]")
         return self
-        
+
     def fix_numbers(self):
         for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
             serie_base = self.df[col]
@@ -72,14 +72,14 @@ class ReporteDf:
                 self.log.append(f"number_change[{i}]-[{col}]")
         return self
 
-    
+
 def vista_previa(df, n_default=20): #Vista previa de los datos.
     col_dict = {}
     st.subheader("Vista previa")
     for col in df.columns:
         if "amount" in col.lower():
-            col_dict[col] = st.column_config.NumberColumn(col, format="${:,.2f")
-    n_rows = st.slider(5,100,n_default,5)
+            col_dict[col] = st.column_config.NumberColumn(col, format="$%.2f")
+    n_rows = st.slider("Número de filas a mostrar",5,100,n_default,5)
     st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
     
     
@@ -132,20 +132,15 @@ def main():
     archivo_completo.fix_header() ##if header = none or int, header = iloc[0]
     archivo_completo.fix_dates()
     archivo_completo.fix_numbers()
-    # archivo_completo.df.style.format({"Amount": "${:,.2f}"})
-    # df.style.format("${:,.2f}")
     
-    # archivo_completo.fix_dates() ##if string:"date" in columns, entirecolumn = date.
-    columnas_nonumericas = []
-
     st.title("Reporte de gastos")
-    st.subheader("Vista previa de:"); st.dataframe(archivo_completo.df.head(20))
-    st.write(archivo_completo.log)
+    vista_previa(archivo_completo.df, 20)
+    # st.write(archivo_completo.log)
+
     st.write(f"La columna amount es: {type(archivo_completo.df["Amount"][2])}")
-    
+    columnas_nonumericas = []
     columnas_numericas = archivo_completo.df.select_dtypes(include="number").columns.to_list() ##Obtenemos las columnas numéricas
     # st.write("Tipos de datos:",archivo_completo.head(5))
-    
     
     for columna in archivo_completo.df.columns:
         if columna not in columnas_numericas:
@@ -153,27 +148,6 @@ def main():
     group = st.selectbox("Columna de agrupación", columnas_nonumericas, index=0)
     metrics = st.selectbox("Columnas numericas", columnas_numericas, index=0)
     st.success(f"La información está agrupada por: **{group}** | Métrica: **{metrics}**")
-    
-    
-    # df_vista, col_cfg = archivo_completo.vista_formateada(N_ROWS)
-    # st.dataframe(df_vista, column_config=col_cfg, hide_index=True)
-    
-    
-    # Slider para elegir cuántas filas mostrar
-    # N_ROWS = st.slider(
-        # "Número de filas a mostrar",
-        # min_value=5,     # mínimo
-        # max_value=100,   # máximo
-        # value=20,        # valor por defecto
-        # step=5           # de cuánto en cuánto sube
-    # )
-    # st.dataframe(
-        # archivo_completo.df.head(N_ROWS),
-        # column_config={
-            # "Amount": st.column_config.NumberColumn("Amount", format="$%.2f")
-        # },
-        # hide_index=True
-    # )
     
     
     Timer1 = time.time()
