@@ -140,13 +140,14 @@ class ReporteDf:
 
         Muestra el DataFrame resultante y lo formatea si contiene montos.
         """
+        st.subheader("Datos agrupados")
         if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
             metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
             agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
 
             agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
-            out_col = f"{agg} de {metric}" ## Crea un texto usando agg y metric para ponerlo de header
+            out_col = f"{agg} de {metric}" ##nombre de la columna 
 
             df_group = (
                 self.df.groupby(group, dropna=False)[metric]
@@ -154,18 +155,47 @@ class ReporteDf:
                        .reset_index()
                        .rename(columns={metric: out_col})
             )
+
             ##Cambiamos el formato dependiendo del caso
             self.df_ui = df_group.copy()
-            for col in self.df_ui.columns:
-                col_low = col.lower()  # para no llamar .lower() varias veces
-                if (("amount" in col_low) and ("suma" in col_low)) or (("amount" in col_low) and ("promedio" in col_low)):
-                    self.df_ui[col] = self.df_ui[col].apply(lambda x: f"${x:,.2f}")
-                else:
-                    self.df_ui[col] = self.df_ui[col].apply(
-                        lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x
-                        )
-
-            st.subheader("Resultado agrupado")
+            
+            group_low = group.lower()
+            if "date" in group_low: ##Si es date, agrupamos por mes.
+                self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce")
+                # serie = df_group[group]
+                # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
+                # st.dataframe(self.df_ui, hide_index=True)
+                # exit()
+                self.df_ui = (
+                    self.df_ui.groupby(self.df_ui[group].dt.to_period("M"), dropna=False)[out_col]
+                        .agg(agg_map[agg])
+                        .reset_index()
+                        .rename(columns={"index": group})
+                    )
+                # st.write("Jajsjs")
+                # st.dataframe(self.df_ui)
+                # self.df_ui[group] = self.df_ui[group].astype(str)
+                # df_group[group] = df_group[group].astype(str)
+            # exit()
+            self.df_ui = self.df_ui.sort_values(by=group, ascending=True) ##Ordenamos menor a mayor (cronológico)
+            if "amount" in out_col.lower(): ##Amount = $
+                if "suma" in out_col.lower() or "promedio" in out_col.lower():
+                    self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
+            else:
+                self.df_ui[out_col] = self.df_ui[out_col].apply(
+                    lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
+            # abril = self.df_ui[
+                # (pd.to_datetime(self.df_ui[group], errors="coerce").dt.month == 4) &
+                # (pd.to_datetime(self.df_ui[group], errors="coerce").dt.year == 2025)
+            # ]
+            # self.df_ui[group] = self.df_ui[group].dt.strftime("%d-%b-%y")
+            # abril[group] = abril[group].dt.strftime("%d-%b-%y")
+            # st.write("Dataframe de abril")
+            # st.dataframe(abril, hide_index=True)
+            
+            
+            tiposs = self.df_ui[group].dtype
+            st.write(f"datos agrupados correctos. tipo de dato = {tiposs}")
             st.dataframe(self.df_ui, hide_index=True)
         else:
             st.warning("Ejecuta primero fix_numbers() para detectar columnas.")
