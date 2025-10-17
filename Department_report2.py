@@ -128,6 +128,51 @@ class ReporteDf:
         self.df_ui = self.df.copy()
         return self
     
+class ReporteUI:
+    def __init__(self, base_df: ReporteDF): ##base_df is the object we created with the class ReporteDF
+        self.df = base_df.df.copy()
+        self.df_view = base_df.df.copy()
+        self.log = []
+        self.numeric_columns = list(getattr(base_df, "numeric_columnas"),[])
+        self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns"),[])
+        self.log = []
+    
+    def set_column_types(self):
+        """Detecta y clasifica columnas numéricas y no numéricas"""
+        self.numeric_columns = []
+        self.non_numeric_columns = []
+        
+        for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
+            serie_base = self.df[col]
+            if number_percent>=0.95 or "amount" in col.lower():
+                self.df[col] = serie_converted
+                self.numeric_columns.append(col)
+                self.log.append(f"number_change[{i}]-[{col}]")
+            else:
+                self.non_numeric_columns.append(col)
+            self.log.append(f"Col to number : {col}")
+        self.df_view = self.df.copy()
+        return self
+    
+    def set_group_df(self):
+        """
+        Crea un agrupamiento dinámico con Streamlit.
+
+        Permite seleccionar:
+            - Columna de agrupación (no numérica)
+            - Columna de métrica (numérica)
+            - Tipo de agregación (conteo, suma o promedio)
+
+        Muestra el DataFrame resultante y lo formatea si contiene montos.
+        """
+        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
+            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
+            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
+            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+        
+        agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
+        out_col = f"{agg} de {metric}" ##nombre de la columna 
+        
     
     def group_data(self): 
         """
@@ -314,10 +359,14 @@ def main():
     archivo_completo.fix_dates()
     archivo_completo.fix_numbers()
     
+    
+    
     st.title("Reporte de gastos")
     vista_previa(archivo_completo.df, 20)
-    archivo_completo.group_data()
+    # archivo_completo.group_data()
+    ui = ReporteUI(archivo_completo)
     
+    ui.set_column_types()
     ##Elegir tipo de agrupación
     # group = st.selectbox("Columna de agrupación", archivo_completo.non_numeric_columns, index=0)
     # metrics = st.selectbox("Columnas numericas", archivo_completo.numeric_columns, index=0)
