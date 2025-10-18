@@ -52,7 +52,6 @@ class ReporteDf:
         """
         # self.df_original =df.copy()
         self.df = df.copy()
-        self.df_ui = df.copy()
         self.log = []
 
     def fix_header(self): 
@@ -72,7 +71,6 @@ class ReporteDf:
         ): ##Si un dataframe no tiene header, este viene como "unamed"
             self.df.columns = self.df.iloc[0] ##Primera fila como encabezado
             self.df = self.df.drop(self.df.index[0]) ##Elimina primera fila.
-            self.df_ui = self.df.copy()
         return self
 
     def fix_dates(self):
@@ -125,34 +123,15 @@ class ReporteDf:
                 self.log.append(f"number_change[{i}]-[{col}]")
             else:
                 self.non_numeric_columns.append(col)
-        self.df_ui = self.df.copy()
         return self
     
-class ReporteUI:
-    def __init__(self, base_df: ReporteDF): ##base_df is the object we created with the class ReporteDF
+class ReporteUi:
+    def __init__(self, base_df: ReporteDf): ##base_df is the object we created with the class ReporteDF
         self.df = base_df.df.copy()
-        self.df_view = base_df.df.copy()
+        self.df_ui = base_df.df.copy()
         self.log = []
-        self.numeric_columns = list(getattr(base_df, "numeric_columnas"),[])
-        self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns"),[])
-        self.log = []
-    
-    def set_column_types(self):
-        """Detecta y clasifica columnas numéricas y no numéricas"""
-        self.numeric_columns = []
-        self.non_numeric_columns = []
-        
-        for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
-            serie_base = self.df[col]
-            if number_percent>=0.95 or "amount" in col.lower():
-                self.df[col] = serie_converted
-                self.numeric_columns.append(col)
-                self.log.append(f"number_change[{i}]-[{col}]")
-            else:
-                self.non_numeric_columns.append(col)
-            self.log.append(f"Col to number : {col}")
-        self.df_view = self.df.copy()
-        return self
+        self.numeric_columns = list(getattr(base_df, "numeric_columns",[]))
+        self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns",[]))
     
     def set_group_df(self):
         """
@@ -170,81 +149,49 @@ class ReporteUI:
             metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
             agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
         
-        agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
-        out_col = f"{agg} de {metric}" ##nombre de la columna 
-        
-    
-    def group_data(self): 
-        """
-        Crea un agrupamiento dinámico con Streamlit.
-
-        Permite seleccionar:
-            - Columna de agrupación (no numérica)
-            - Columna de métrica (numérica)
-            - Tipo de agregación (conteo, suma o promedio)
-
-        Muestra el DataFrame resultante y lo formatea si contiene montos.
-        """
-        st.subheader("Datos agrupados")
-        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
-            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
-            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
-            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
-
             agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
             out_col = f"{agg} de {metric}" ##nombre de la columna 
-
+            
             df_group = (
-                self.df.groupby(group, dropna=False)[metric]
-                       .agg(agg_map[agg])
-                       .reset_index()
-                       .rename(columns={metric: out_col})
-            )
-
+                    self.df.groupby(group, dropna=False)[metric]
+                           .agg(agg_map[agg])
+                           .reset_index()
+                           .rename(columns={metric: out_col})
+                )
             ##Cambiamos el formato dependiendo del caso
             self.df_ui = df_group.copy()
-            
             group_low = group.lower()
             if "date" in group_low: ##Si es date, agrupamos por mes.
-                self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce")
-                # serie = df_group[group]
-                # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
-                # st.dataframe(self.df_ui, hide_index=True)
-                # exit()
-                self.df_ui = (
-                    self.df_ui.groupby(self.df_ui[group].dt.to_period("M"), dropna=False)[out_col]
-                        .agg(agg_map[agg])
-                        .reset_index()
-                        .rename(columns={"index": group})
-                    )
-                # st.write("Jajsjs")
-                # st.dataframe(self.df_ui)
-                # self.df_ui[group] = self.df_ui[group].astype(str)
-                # df_group[group] = df_group[group].astype(str)
-            # exit()
-            self.df_ui = self.df_ui.sort_values(by=group, ascending=True) ##Ordenamos menor a mayor (cronológico)
-            if "amount" in out_col.lower(): ##Amount = $
+                self._date_group(group, out_col, agg_map, agg)
+            
+            self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
+            if "amount" in out_col.lower():
                 if "suma" in out_col.lower() or "promedio" in out_col.lower():
                     self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
             else:
                 self.df_ui[out_col] = self.df_ui[out_col].apply(
                     lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
-            # abril = self.df_ui[
-                # (pd.to_datetime(self.df_ui[group], errors="coerce").dt.month == 4) &
-                # (pd.to_datetime(self.df_ui[group], errors="coerce").dt.year == 2025)
-            # ]
-            # self.df_ui[group] = self.df_ui[group].dt.strftime("%d-%b-%y")
-            # abril[group] = abril[group].dt.strftime("%d-%b-%y")
-            # st.write("Dataframe de abril")
-            # st.dataframe(abril, hide_index=True)
-            
-            
             tiposs = self.df_ui[group].dtype
             st.write(f"datos agrupados correctos. tipo de dato = {tiposs}")
             st.dataframe(self.df_ui, hide_index=True)
         else:
             st.warning("Ejecuta primero fix_numbers() para detectar columnas.")
             return
+
+    def _date_group(self, group, out_col, agg_map, agg):
+        self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce")
+        # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
+        # exit()
+        self.df_ui = (
+            self.df_ui.groupby(self.df_ui[group].dt.to_period("M"), dropna=False)[out_col]
+                .agg(agg_map[agg])
+                .reset_index()
+                .rename(columns={"index": group})
+            )
+        # st.write("Jajsjs")
+        # st.dataframe(self.df_ui)
+        # self.df_ui[group] = self.df_ui[group].astype(str)
+        # df_group[group] = df_group[group].astype(str)
 
 def boton_escala():
     """
@@ -257,7 +204,7 @@ def boton_escala():
         pass  # aquí luego conectamos la lógica
 
 
-def vista_previa(df, n_default=20):
+def vista_previa(df, n_default=20, titulo=None):
     """
     Muestra una vista previa de los datos en Streamlit.
 
@@ -266,7 +213,8 @@ def vista_previa(df, n_default=20):
         n_default (int): número inicial de filas a mostrar (default=20).
     """
     col_dict = {}
-    st.subheader("Vista previa")
+    if titulo==None: titulo="Vista Previa"
+    st.subheader(titulo)
     for col in df.columns:
         if "amount" in col.lower():
             col_dict[col] = st.column_config.NumberColumn(col, format="$%.2f")
@@ -364,9 +312,8 @@ def main():
     st.title("Reporte de gastos")
     vista_previa(archivo_completo.df, 20)
     # archivo_completo.group_data()
-    ui = ReporteUI(archivo_completo)
-    
-    ui.set_column_types()
+    ui = ReporteUi(archivo_completo)
+    ui.set_group_df()
     ##Elegir tipo de agrupación
     # group = st.selectbox("Columna de agrupación", archivo_completo.non_numeric_columns, index=0)
     # metrics = st.selectbox("Columnas numericas", archivo_completo.numeric_columns, index=0)
