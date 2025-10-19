@@ -104,7 +104,7 @@ class ReporteDf:
         - Limpia caracteres no numéricos.
         - Convierte strings a float/int cuando es posible.
         - Clasifica columnas en numéricas o no numéricas.
-        - Guarda los nombres en atributos internos.
+        - Guarda los nombres en atributos internos.1
 
         Returns:
             ReporteDf: devuelve self para encadenar.
@@ -179,15 +179,53 @@ class ReporteUi:
             return
 
     def _date_group(self, group, out_col, agg_map, agg):
-        self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce")
-        # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
-        # exit()
+        """Permitirá manipular los datos agrupados y creará botones para mostrar por diferentes periodos.
+        """
+        ##Convertir a fecha y mapping
+        self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce") 
+        opciones = ["Mes", "Trimestre", "Año"]
+        map_periodo = {"Mes":"M", "Trimestre":"Q", "Año":"Y"}
+        
+        ##Componentes interactivos:
+        col1, col2 = st.columns(2)
+        with col1:
+            opcion = st.radio("Seleccione agrupación:", opciones)
+            valor = map_periodo[opcion]
+        with col2:
+            modo = st.toggle("Especificar rango:")
+            if modo:
+                subcol1, subcol2 = st.columns(2)
+                with subcol1:
+                    rango_0 = subcol1.date_input("Desde")
+                    rango_0 = pd.to_datetime(rango_0)
+                with subcol2:
+                    rango_1 = subcol2.date_input("Hasta")
+                    rango_1 = pd.to_datetime(rango_1)
+        #Filtramos
+        df_base = self.df_ui
+        if modo:
+            df_base = df_base.loc[df_base[group].between(rango_0,rango_1)].copy()
+        
+        
+        ##Hacemos agrupación
         self.df_ui = (
-            self.df_ui.groupby(self.df_ui[group].dt.to_period("M"), dropna=False)[out_col]
+            df_base.groupby(self.df_ui[group].dt.to_period(valor), 
+                dropna=False)[out_col]
                 .agg(agg_map[agg])
                 .reset_index()
                 .rename(columns={"index": group})
             )
+        
+        # st.write(f"Tipo de dato {self.df_ui.iloc[1:1]}")
+        # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
+        # exit()
+        # if st.button("Actualizar gráfico"):
+            # Este bloque se ejecuta solo cuando el usuario presiona el botón
+            # st.write("Botón presionado")
+        
+        
+        
+    
         # st.write("Jajsjs")
         # st.dataframe(self.df_ui)
         # self.df_ui[group] = self.df_ui[group].astype(str)
@@ -314,6 +352,20 @@ def main():
     # archivo_completo.group_data()
     ui = ReporteUi(archivo_completo)
     ui.set_group_df()
+    
+    
+    # opcion = st.radio(
+    # "Selecciona una acción:",
+    # ["Ver tabla", "Ver gráfico", "Actualizar datos"]
+    # )
+
+    # if opcion == "Ver tabla":
+        # st.write("Mostrando tabla...")
+    # elif opcion == "Ver gráfico":
+        # st.write("Mostrando gráfico...")
+    # elif opcion == "Actualizar datos":
+        # st.write("Datos actualizados")
+
     ##Elegir tipo de agrupación
     # group = st.selectbox("Columna de agrupación", archivo_completo.non_numeric_columns, index=0)
     # metrics = st.selectbox("Columnas numericas", archivo_completo.numeric_columns, index=0)
