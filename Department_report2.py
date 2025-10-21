@@ -26,6 +26,7 @@ import streamlit as st
 import sys
 import os
 import re
+from datetime import date
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
@@ -144,6 +145,7 @@ class ReporteUi:
 
         Muestra el DataFrame resultante y lo formatea si contiene montos.
         """
+        st.subheader("Datos agrupados")
         if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
             metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
@@ -163,7 +165,15 @@ class ReporteUi:
             group_low = group.lower()
             if "date" in group_low: ##Si es date, agrupamos por mes.
                 self._date_group(group, out_col, agg_map, agg)
-            
+            # else:
+                # dict_names = self.df_ui[group].to_list()
+                # modo = st.toggle("Especificar nombre:")
+                # st.write("Desmadre we")
+                # for dato in dict_names:
+                    # st.write(dato)
+                # st.selectbox("string", ["Agrupar", "filtrar","graficar"])
+                # st.dataframe(self.df_ui.head(5))
+            # exit()
             self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
             if "amount" in out_col.lower():
                 if "suma" in out_col.lower() or "promedio" in out_col.lower():
@@ -182,54 +192,53 @@ class ReporteUi:
         """Permitirá manipular los datos agrupados y creará botones para mostrar por diferentes periodos.
         """
         ##Convertir a fecha y mapping
+        ss = st.session_state
+        hoy = date.today()
         self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce") 
+        df_base = self.df_ui
         opciones = ["Mes", "Trimestre", "Año"]
         map_periodo = {"Mes":"M", "Trimestre":"Q", "Año":"Y"}
+        
+        if "opt_agru" not in ss:
+            ss.opt_agru = "Mes"
+        if "tgl_rango" not in ss:
+            ss.tgl_rango = False
+        if "date_from" not in ss:
+            ss.date_from = date(hoy.year,1,1)
+        if "date_to" not in ss:
+            ss.date_to = hoy
         
         ##Componentes interactivos:
         col1, col2 = st.columns(2)
         with col1:
-            opcion = st.radio("Seleccione agrupación:", opciones)
+            opcion = st.radio("Seleccione agrupación:", opciones, key="opt_agru")
             valor = map_periodo[opcion]
         with col2:
-            modo = st.toggle("Especificar rango:")
+            modo = st.toggle("Especificar rango:", key="tgl_rango")
             if modo:
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
-                    rango_0 = subcol1.date_input("Desde")
-                    rango_0 = pd.to_datetime(rango_0)
+                    start_year = date(hoy.year, 1,1)
+                    # rango_0 = subcol1.date_input("Desde", value = ss.date_from, key = "date_from_widget")
+                    # rango_0 = pd.to_datetime(rango_0)
+                    ss.date_from = pd.to_datetime(st.date_input("Desde", value = ss.date_from, key="date_from_widget"))
                 with subcol2:
-                    rango_1 = subcol2.date_input("Hasta")
-                    rango_1 = pd.to_datetime(rango_1)
+                    ss.date_to = pd.to_datetime(st.date_input("Hasta", value = ss.date_to, key="date_to_widget"))
+                    # rango_1 = subcol2.date_input("Hasta", value= ss.date_to, key = "date_to_widget")
+                    # rango_1 = pd.to_datetime(rango_1)
         #Filtramos
-        df_base = self.df_ui
         if modo:
-            df_base = df_base.loc[df_base[group].between(rango_0,rango_1)].copy()
-        
+            df_base = df_base.loc[df_base[group].between(ss.date_from,ss.date_to)].copy()
         
         ##Hacemos agrupación
         self.df_ui = (
-            df_base.groupby(self.df_ui[group].dt.to_period(valor), 
+            df_base.groupby(df_base[group].dt.to_period(valor), 
                 dropna=False)[out_col]
                 .agg(agg_map[agg])
                 .reset_index()
                 .rename(columns={"index": group})
             )
-        
-        # st.write(f"Tipo de dato {self.df_ui.iloc[1:1]}")
-        # st.write(f"Ahorita hacemos algo, todavía no, tipo = {serie.dtype}")
-        # exit()
-        # if st.button("Actualizar gráfico"):
-            # Este bloque se ejecuta solo cuando el usuario presiona el botón
-            # st.write("Botón presionado")
-        
-        
-        
-    
-        # st.write("Jajsjs")
-        # st.dataframe(self.df_ui)
-        # self.df_ui[group] = self.df_ui[group].astype(str)
-        # df_group[group] = df_group[group].astype(str)
+
 
 def boton_escala():
     """
@@ -251,14 +260,21 @@ def vista_previa(df, n_default=20, titulo=None):
         n_default (int): número inicial de filas a mostrar (default=20).
     """
     col_dict = {}
-    if titulo==None: titulo="Vista Previa"
+    if titulo is None: titulo="Vista Previa"
     st.subheader(titulo)
     for col in df.columns:
         if "amount" in col.lower():
             col_dict[col] = st.column_config.NumberColumn(col, format="$%.2f")
-    n_rows = st.slider("Número de filas a mostrar",5,100,n_default,5)
-    st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
     
+    key_flag = f"show_preview_{titulo}" ##Clave de estado
+    if key_flag not in st.session_state:
+        st.session_state[key_flag] = True
+    if st.button("Vista previa"): ##Alterna el valor al presionar
+        st.session_state[key_flag] = not st.session_state[key_flag]
+    if st.session_state[key_flag]:
+        n_rows = st.slider("Número de filas a mostrar",5,100,n_default,5)
+        st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
+
     
 def string_to_number(df, columnas):##Convierte columnas a número
     """
@@ -323,8 +339,16 @@ def obtener_dataframe(): ##Function that selects a file to work with.
     else:
         archivo_leido = pd.DataFrame(leer_file(archivo_base))
     return archivo_leido
-    
 
+
+def show_button(nombre):
+    key_flag = f"show_preview_{titulo}" ##Creamos variable true/false
+    if key_flag not in st.session_state:
+        st.session_state[key_flag] = True
+    if st.button("Vista previa"): ##Alterna el valor al presionar
+        st.session_state[key_flag] = not st.session_state[key_flag]
+    if st.session_state[key_flag]:
+        print("A")
 def main():
     """
     Función principal del módulo.
@@ -339,17 +363,25 @@ def main():
     """
     Timer0 = time.time()
     archivo_base = obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos.
-    
+    Timer1 = time.time()
     archivo_completo = ReporteDf(archivo_base) ##Es una instancia con propiedades.
     archivo_completo.fix_header() ##if header = none or int, header = iloc[0]
     archivo_completo.fix_dates()
     archivo_completo.fix_numbers()
-    
+    Timer2 = time.time()
+    tiempo_lectura = Timer1-Timer0
+    tiempo_format = Timer2-Timer0-2.5
+    st.write(f"Tiempo Lectura: {tiempo_lectura}\nTiempo formatos: {tiempo_format}")
     
     
     st.title("Reporte de gastos")
-    vista_previa(archivo_completo.df, 20)
-    # archivo_completo.group_data()
+    # vista_previa(archivo_completo.df, 20, "Datos generales")
+    st.write("No pasa nada we")
+    # exit()
+    st.write("")
+    st.write("")
+    st.write("")
+    
     ui = ReporteUi(archivo_completo)
     ui.set_group_df()
     
