@@ -145,6 +145,7 @@ class ReporteUi:
 
         Muestra el DataFrame resultante y lo formatea si contiene montos.
         """
+        ss = st.session_state
         st.subheader("Datos agrupados")
         if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
@@ -160,21 +161,26 @@ class ReporteUi:
                            .reset_index()
                            .rename(columns={metric: out_col})
                 )
+            if "toggle_name_widget" not in ss:
+                ss.toggle_name_widget = False
+            
             ##Cambiamos el formato dependiendo del caso
             self.df_ui = df_group.copy()
             group_low = group.lower()
             if "date" in group_low: ##Si es date, agrupamos por mes.
                 self._date_group(group, out_col, agg_map, agg)
-            # else:
-                # dict_names = self.df_ui[group].to_list()
-                # modo = st.toggle("Especificar nombre:")
-                # st.write("Desmadre we")
-                # for dato in dict_names:
-                    # st.write(dato)
-                # st.selectbox("string", ["Agrupar", "filtrar","graficar"])
-                # st.dataframe(self.df_ui.head(5))
-            # exit()
-            self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
+            else:
+                dict_names = self.df_ui[group].to_list()
+                modo = st.toggle(f"Especificar {group}", key="name_widget")
+                if modo:
+                    opciones = st.multiselect(group, dict_names, key="multiselect_widget")
+                    if opciones:
+                        self.df_ui = self.df_ui[self.df_ui.iloc[:,0].isin(opciones)]
+                        st.write((lambda x: f">Opciones = {', '.join(x)}")(dict_names))
+            try:
+                self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
+            except:
+                pass
             if "amount" in out_col.lower():
                 if "suma" in out_col.lower() or "promedio" in out_col.lower():
                     self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
@@ -182,7 +188,7 @@ class ReporteUi:
                 self.df_ui[out_col] = self.df_ui[out_col].apply(
                     lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
             tiposs = self.df_ui[group].dtype
-            st.write(f"datos agrupados correctos. tipo de dato = {tiposs}")
+            # st.write(f"datos agrupados correctos. tipo de dato = {tiposs}")
             st.dataframe(self.df_ui, hide_index=True)
         else:
             st.warning("Ejecuta primero fix_numbers() para detectar columnas.")
