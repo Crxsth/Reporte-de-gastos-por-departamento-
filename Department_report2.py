@@ -246,6 +246,8 @@ class ReporteUi:
             )
 
 
+
+
 def boton_escala():
     """
     Crea un botón en Streamlit para cambiar la escala del gráfico.
@@ -257,7 +259,7 @@ def boton_escala():
         pass  # aquí luego conectamos la lógica
 
 
-def vista_previa(df, n_default=20, titulo=None):
+def vista_previa(df, n_default=20, titulo=None, key=None):
     """
     Muestra una vista previa de los datos en Streamlit.
 
@@ -272,7 +274,7 @@ def vista_previa(df, n_default=20, titulo=None):
         if "amount" in col.lower():
             col_dict[col] = st.column_config.NumberColumn(col, format="$%.2f")
     
-    key_flag = f"show_preview_{titulo}" ##Clave de estado
+    key_flag = f"show_preview_{key}" ##Clave de estado
     if key_flag not in st.session_state:
         st.session_state[key_flag] = True
     if st.button("Vista previa"): ##Alterna el valor al presionar
@@ -331,21 +333,29 @@ def obtener_dataframe(): ##Function that selects a file to work with.
     Si es Excel, usa la función personalizada `leer_file()`.
 
     Returns:
-        pd.DataFrame: datos cargados desde el archivo.
+        Datos cargados desde el archivo.
     """
     archivo_base = st.file_uploader( ##Devuelve un archivo en memoria.
         "Selecciona el archivo de Excel o CSV",
         type=["csv", "xlsx", "xlsm"]
         )
     st.info("Sube un archivo para continuar.")
-    if archivo_base is None:
-        st.stop()
+    
+    if not archivo_base:
+        return None, None
+    
+    archivo_id = getattr(archivo_base, "name", None)  # <- ID estable del upload
+    
     if archivo_base.name.lower().endswith(".csv"):
         archivo_leido = pd.read_csv(archivo_base, encoding="latin-1", header=0)
     else:
-        archivo_leido = pd.DataFrame(leer_file(archivo_base))
-    return archivo_leido
+        archivo_leido = pd.DataFrame(leer_file(archivo_base)) ##Lo leemos con nuestro lector personalizado
+    return archivo_leido, archivo_id
 
+
+def escribir(texto):
+    st.write(texto)
+    print(texto)
 
 def show_button(nombre):
     key_flag = f"show_preview_{titulo}" ##Creamos variable true/false
@@ -367,53 +377,50 @@ def main():
 
     Esta función se ejecuta solo si el módulo es invocado directamente.
     """
-    Timer0 = time.time()
-    archivo_base = obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos.
-    Timer1 = time.time()
-    archivo_completo = ReporteDf(archivo_base) ##Es una instancia con propiedades.
-    archivo_completo.fix_header() ##if header = none or int, header = iloc[0]
-    archivo_completo.fix_dates()
-    archivo_completo.fix_numbers()
-    Timer2 = time.time()
-    tiempo_lectura = Timer1-Timer0
-    tiempo_format = Timer2-Timer0-2.5
-    st.write(f"Tiempo Lectura: {tiempo_lectura}\nTiempo formatos: {tiempo_format}")
+    ss = st.session_state
     
+    ##Execution.count(), por temas de revisión
+    if "contador_main" not in ss:
+        ss.contador_main = 1
+    else:
+        ss.contador_main +=1
+        # escribir(f"contador we: {ss.contador_main}")
+        st.write(f"ejecuciones we: {ss.contador_main}")
+
+    archivo_base, archivo_id = obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos.
+    if archivo_base is None:
+        st.stop()
+
+    if "archivo_id" not in ss: ##Lo inicializamos si no existía
+        ss.archivo_id = None
     
+    if "reporte" not in ss or ss.get("archivo_id") != archivo_id: """Evita re-ejecuciones cada que actualicemos el st. 
+        Es decir, si no han subido archivo lo calculamos"""
+        reporte = ReporteDf(archivo_base) ##Es una instancia con propiedades.
+        reporte.fix_header() ##if header = none or int, header = iloc[0]
+        reporte.fix_dates()
+        reporte.fix_numbers()
+        ss.reporte = reporte
+        # ss.archivo_id = archivo_id
+    else:
+        st.write(f"Else1: usando archivo previo → {ss.archivo_id}") ##Si el archivo no ha sido modificado, pues usamos el existente.
+        reporte = ss.reporte
+    
+    if "reporte" not in st.session_state: ##Si no hemos ejecutado el formatting, stop.
+        st.stop()
+
     st.title("Reporte de gastos")
-    # vista_previa(archivo_completo.df, 20, "Datos generales")
-    st.write("No pasa nada we")
-    # exit()
-    st.write("")
-    st.write("")
-    st.write("")
+    vista_previa(reporte.df, 20, "Datos generales", key="datos_generales_0")
     
-    ui = ReporteUi(archivo_completo)
+    ##Datos agrupados
+    ui = ReporteUi(reporte)
     ui.set_group_df()
+    ss.ui = ui
     
     
-    # opcion = st.radio(
-    # "Selecciona una acción:",
-    # ["Ver tabla", "Ver gráfico", "Actualizar datos"]
-    # )
-
-    # if opcion == "Ver tabla":
-        # st.write("Mostrando tabla...")
-    # elif opcion == "Ver gráfico":
-        # st.write("Mostrando gráfico...")
-    # elif opcion == "Actualizar datos":
-        # st.write("Datos actualizados")
-
-    ##Elegir tipo de agrupación
-    # group = st.selectbox("Columna de agrupación", archivo_completo.non_numeric_columns, index=0)
-    # metrics = st.selectbox("Columnas numericas", archivo_completo.numeric_columns, index=0)
-    # agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0)
-    # agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"}
-    
-    
-    Timer1 = time.time()
-    ExecTime = Timer1 - Timer0
-    print(f"Execution time: {ExecTime:,.2f}s")
+    # Timer1 = time.time()
+    # ExecTime = Timer1 - Timer0
+    # print(f"Execution time: {ExecTime:,.2f}s")
     
 if __name__ == "__main__":
     main()
