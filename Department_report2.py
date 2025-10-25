@@ -86,15 +86,18 @@ class ReporteDf:
         """
         for i, col in enumerate(self.df.columns):
             if "date" in col.lower():
-                self.df = string_to_number(self.df, [col]) ##Convertir a number.
-                s_base = self.df[col]
-                s_converted =pd.to_datetime(
-                    s_base, unit="D", origin="1899-12-30", errors="coerce"
-                )
-                resultado = s_converted.where(s_converted.notna(), s_base)
-                resultado = resultado.dt.strftime("%d-%b-%y")
-                self.df[col] = resultado
-                self.log.append(f"date_change[{i}]-[{col}]")
+                try:
+                    self.df = string_to_number(self.df, [col]) ##Convertir a number.
+                    s_base = self.df[col]
+                    s_converted =pd.to_datetime(
+                        s_base, unit="D", origin="1899-12-30", errors="coerce"
+                    )
+                    resultado = s_converted.where(s_converted.notna(), s_base)
+                    resultado = resultado.dt.strftime("%d-%b-%y")
+                    self.df[col] = resultado
+                    self.log.append(f"date_change[{i}]-[{col}]")
+                except:
+                    pass
         self.df_ui = self.df.copy()
         return self
 
@@ -181,6 +184,8 @@ class ReporteUi:
                 self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
             except:
                 pass
+            ##Antes de convertir a string, {df} será un respaldo.
+            self.df = self.df_ui.copy()
             if "amount" in out_col.lower():
                 if "suma" in out_col.lower() or "promedio" in out_col.lower():
                     self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
@@ -193,6 +198,12 @@ class ReporteUi:
         else:
             st.warning("Ejecuta primero fix_numbers() para detectar columnas.")
             return
+        self.group = group
+        self.metric = metric
+        self.agg = agg
+        self.out_col = out_col
+        return
+
 
     def _date_group(self, group, out_col, agg_map, agg):
         """Permitirá manipular los datos agrupados y creará botones para mostrar por diferentes periodos.
@@ -245,8 +256,24 @@ class ReporteUi:
                 .rename(columns={"index": group})
             )
 
-
-
+    def porcentajes(self):
+        """Añade una columna con porcentajes y actualiza el objeto self.df_ui y self.df
+        """
+        group = self.group ##Nombres
+        metric = self.metric ##Numeros
+        agg = self.agg ##No recuerdo
+        out_col = self.out_col
+        self.df["Porcentaje"] = self.df[out_col] / self.df[out_col].sum()*100
+        self.df_ui = self.df.copy()
+        
+        #button
+        key_flag = "mostrar_porcentajes"
+        st.session_state.setdefault(key_flag, False)
+        if st.button("Mostrar porcentajes"):##Se cambia de estado
+            st.session_state[key_flag] = not st.session_state[key_flag]
+        if st.session_state[key_flag] == True:
+            self.set_group_df()
+        
 
 def boton_escala():
     """
@@ -275,11 +302,13 @@ def vista_previa(df, n_default=20, titulo=None, key=None):
             col_dict[col] = st.column_config.NumberColumn(col, format="$%.2f")
     
     key_flag = f"show_preview_{key}" ##Clave de estado
-    if key_flag not in st.session_state:
+    if key_flag not in st.session_state: ##Inicializa la key
         st.session_state[key_flag] = True
+    
     if st.button("Vista previa"): ##Alterna el valor al presionar
         st.session_state[key_flag] = not st.session_state[key_flag]
-    if st.session_state[key_flag]:
+    
+    if st.session_state[key_flag] == True: ##Decide que mostrar, ejemplo if st.ss.key_flag = True: muestra lo de abajo.
         n_rows = st.slider("Número de filas a mostrar",5,100,n_default,5)
         st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
 
@@ -394,8 +423,8 @@ def main():
     if "archivo_id" not in ss: ##Lo inicializamos si no existía
         ss.archivo_id = None
     
-    if "reporte" not in ss or ss.get("archivo_id") != archivo_id: """Evita re-ejecuciones cada que actualicemos el st. 
-        Es decir, si no han subido archivo lo calculamos"""
+    if "reporte" not in ss or ss.get("archivo_id") != archivo_id: ##Evita re-ejecuciones cada que actualicemos el st
+        ##Es decir, si no han subido archivo lo calculamos
         reporte = ReporteDf(archivo_base) ##Es una instancia con propiedades.
         reporte.fix_header() ##if header = none or int, header = iloc[0]
         reporte.fix_dates()
@@ -415,6 +444,7 @@ def main():
     ##Datos agrupados
     ui = ReporteUi(reporte)
     ui.set_group_df()
+    ui.porcentajes()
     ss.ui = ui
     
     
