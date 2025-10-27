@@ -177,7 +177,8 @@ class ReporteUi:
                             ss.date_from = pd.to_datetime(st.date_input("Desde", value = ss.date_from, key="date_from_widget"))
                         with subcol2:
                             ss.date_to = pd.to_datetime(st.date_input("Hasta", value = ss.date_to, key="date_to_widget"))
-                
+            else:
+                ss.tgl_rango = False
                 
             self.group = group
             self.metric = metric
@@ -195,23 +196,18 @@ class ReporteUi:
         agg = self.agg
         out_col = self.out_col
         modo = ss.tgl_rango ##Bool que indica si se especificó fecha de datos.
-        # st.dataframe(self.df)
         self.df = (
                     self.df.groupby(group)[metric]
                     .agg(agg_map[agg])
                     .reset_index()
                     .rename(columns={metric:out_col})
                     )
+        if "date" in group.lower(): ##Forzamos date para evitar errores
+            self.df[group] = pd.to_datetime(self.df[group], format="%d-%b-%y", errors="coerce") 
+        
         
         if modo ==True:
-            try:
-                self.df = self.df.loc[self.df[group].between(ss.date_from,ss.date_to)]
-                escribir("Sí se pudooooooooooo!")
-            except Exception as e:
-                escribir(f"Error we, fechas malas, tipo 1 y 2, error: {e}")
-                escribir(f"{type(ss.date_from_widget)} y {type(ss.date_to_widget)}")
-                escribir(f"Columna group: {type(self.df[group])}")
-                exit()
+            self.df = self.df.loc[self.df[group].between(ss.date_from,ss.date_to)]
         
         ##Hacemos un agrupación nueva, ya que al agrupar por fecha de manera normal, muestra 1 row per day y no sirve así
         if "date" in group.lower():
@@ -223,13 +219,6 @@ class ReporteUi:
                         .reset_index()
                         .rename(columns={"index": group})
                         )
-            
-        # df_group = (
-                    # self.df.groupby(group, dropna=False)[metric]
-                           # .agg(agg_map[agg])
-                           # .reset_index()
-                           # .rename(columns={metric: out_col})
-                # )
 
     def show_data(self):
         out_col = self.out_col
