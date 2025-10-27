@@ -137,6 +137,118 @@ class ReporteUi:
         self.numeric_columns = list(getattr(base_df, "numeric_columns",[]))
         self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns",[]))
     
+    def componentes_interactivos(self):
+        """Crea los botones y widgets
+        """
+        opciones = ["Mes", "Trimestre", "Año"]
+        map_periodo = {"Mes":"M", "Trimestre":"Q", "Año":"Y"}
+        hoy = date.today()
+        ss = st.session_state
+        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
+            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
+            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
+            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+            out_col = f"{agg} de {metric}" ##nombre de la columna 
+            
+            if "opt_agru" not in ss: ##Key de la agrupación por mes
+                ss.opt_agru = "Mes"
+            if "tgl_rango" not in ss: ##Key de 'modo' = toggle de rango
+                ss.tgl_rango = False
+            if "date_from" not in ss: ##Key del rango toggle date_from
+                ss.date_from = date(hoy.year,1,1)
+            if "date_to" not in ss: ##Key del rango toggle date to
+                ss.date_to = hoy
+        ##Componentes para date:
+            if "toggle_name_widget" not in ss:
+                    ss.toggle_name_widget = False
+
+            if "date" in group.lower(): ##Si es date, agrupamos por mes.
+                col1, col2 = st.columns(2)
+                with col1:
+                    opcion = st.radio("Seleccione agrupación:", opciones, key="opt_agru")
+                    valor = map_periodo[opcion]
+                    ss.valor_periodo = map_periodo[opcion]
+                with col2:
+                    modo = st.toggle("Especificar rango:", key="tgl_rango")
+                    if modo:
+                        subcol1, subcol2 = st.columns(2)
+                        with subcol1:
+                            start_year = date(hoy.year, 1,1)
+                            ss.date_from = pd.to_datetime(st.date_input("Desde", value = ss.date_from, key="date_from_widget"))
+                        with subcol2:
+                            ss.date_to = pd.to_datetime(st.date_input("Hasta", value = ss.date_to, key="date_to_widget"))
+                
+                
+            self.group = group
+            self.metric = metric
+            self.agg = agg
+            self.out_col = out_col
+        else:
+            escribir("No data to group")
+        return self
+
+    def agrupar(self):
+        ss = st.session_state
+        agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
+        group = self.group
+        metric = self.metric
+        agg = self.agg
+        out_col = self.out_col
+        modo = ss.tgl_rango ##Bool que indica si se especificó fecha de datos.
+        # st.dataframe(self.df)
+        self.df = (
+                    self.df.groupby(group)[metric]
+                    .agg(agg_map[agg])
+                    .reset_index()
+                    .rename(columns={metric:out_col})
+                    )
+        
+        if modo ==True:
+            try:
+                self.df = self.df.loc[self.df[group].between(ss.date_from,ss.date_to)]
+                escribir("Sí se pudooooooooooo!")
+            except Exception as e:
+                escribir(f"Error we, fechas malas, tipo 1 y 2, error: {e}")
+                escribir(f"{type(ss.date_from_widget)} y {type(ss.date_to_widget)}")
+                escribir(f"Columna group: {type(self.df[group])}")
+                exit()
+        
+        ##Hacemos un agrupación nueva, ya que al agrupar por fecha de manera normal, muestra 1 row per day y no sirve así
+        if "date" in group.lower():
+            self.df[group] = pd.to_datetime(self.df[group], format="%d-%b-%y", errors="coerce") 
+            self.df = ( 
+                        self.df.groupby(self.df[group].dt.to_period(ss.valor_periodo),
+                        dropna=False)[out_col]
+                        .agg(agg_map[agg])
+                        .reset_index()
+                        .rename(columns={"index": group})
+                        )
+            
+        # df_group = (
+                    # self.df.groupby(group, dropna=False)[metric]
+                           # .agg(agg_map[agg])
+                           # .reset_index()
+                           # .rename(columns={metric: out_col})
+                # )
+
+    def show_data(self):
+        out_col = self.out_col
+        ##Sort
+        try:
+            self.df = self.df.sort_values(by=self.group, ascending=True)
+        except:
+            pass
+        ## $ format, else = f"{:,.0f}"
+        self.df_ui = self.df.copy()
+        if "amount" in out_col.lower():
+            if "suma" in out_col.lower() or "promedio" in out_col.lower():
+                self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
+        else:
+            self.df_ui[out_col] = self.df_ui[out_col].apply(
+                lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
+        #show:
+        st.dataframe(self.df_ui)
+
     def set_group_df(self):
         """
         Crea un agrupamiento dinámico con Streamlit.
@@ -148,25 +260,38 @@ class ReporteUi:
 
         Muestra el DataFrame resultante y lo formatea si contiene montos.
         """
+        # st.subheader("Datos agrupados")
         ss = st.session_state
-        st.subheader("Datos agrupados")
         if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
             metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
             agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+       
+        if "toggle_name_widget" not in ss:
+            ss.toggle_name_widget = False
         
-            agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
-            out_col = f"{agg} de {metric}" ##nombre de la columna 
-            
-            df_group = (
-                    self.df.groupby(group, dropna=False)[metric]
-                           .agg(agg_map[agg])
-                           .reset_index()
-                           .rename(columns={metric: out_col})
-                )
-            if "toggle_name_widget" not in ss:
-                ss.toggle_name_widget = False
-            
+        agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
+        out_col = f"{agg} de {metric}" ##nombre de la columna 
+        df_group = (
+            self.df.groupby(group, dropna=False)[metric]
+                   .agg(agg_map[agg])
+                   .reset_index()
+                   .rename(columns={metric: out_col})
+                    )
+
+
+    def controles_ui(self):
+        ss = st.session_state
+        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
+            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
+            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
+            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+       
+        if "toggle_name_widget" not in ss:
+            ss.toggle_name_widget = False
+
+
+###############################################################################
             ##Cambiamos el formato dependiendo del caso
             self.df_ui = df_group.copy()
             group_low = group.lower()
@@ -210,6 +335,7 @@ class ReporteUi:
         """
         ##Convertir a fecha y mapping
         ss = st.session_state
+        
         hoy = date.today()
         self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce") 
         df_base = self.df_ui
@@ -443,9 +569,13 @@ def main():
     
     ##Datos agrupados
     ui = ReporteUi(reporte)
-    ui.set_group_df()
-    ui.porcentajes()
-    ss.ui = ui
+    ui.componentes_interactivos()
+    ui.agrupar()
+    ui.show_data()
+    
+    # ui.set_group_df()
+    # ui.porcentajes()
+    # ss.ui = ui
     
     
     # Timer1 = time.time()
