@@ -136,6 +136,15 @@ class ReporteUi:
         self.log = []
         self.numeric_columns = list(getattr(base_df, "numeric_columns",[]))
         self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns",[]))
+        
+    def _modificar_listacampos(self):
+        """Cambia las listas de campos para el caso de filtrar por date"""
+        lista_var = []
+        self.extra_columns = []
+        for dato in self.non_numeric_columns.copy():
+            if "date" in dato.lower():
+                self.extra_columns.append(dato)
+                self.non_numeric_columns.remove(dato)
     
     def componentes_interactivos(self):
         """Crea los botones y widgets
@@ -144,12 +153,27 @@ class ReporteUi:
         map_periodo = {"Mes":"M", "Trimestre":"Q", "Año":"Y"}
         hoy = date.today()
         ss = st.session_state
+        
         if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
+            ##Widget para añadir 'date' como filtro adicional
+            if "date_filter" not in ss:
+                ss.date_filter = False
+            periodo = st.toggle("Filtrar por fechas:", key = "date_filter")
+            if ss.date_filter == True:
+                self._modificar_listacampos()
+            
+            ##Select boxes
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
-            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
-            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+            col_metric, col_agg = st.columns(2)
+            with col_metric:
+                metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
+            with col_agg:
+                agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
+            if ss.date_filter == True:
+                period = st.selectbox("Fechas", self.extra_columns, index=0)
             out_col = f"{agg} de {metric}" ##nombre de la columna 
             
+            ##Aquí quiero poner que modifique group y quite "Transaction date" de las opciones del select box
             if "opt_agru" not in ss: ##Key de la agrupación por mes
                 ss.opt_agru = "Mes"
             if "tgl_rango" not in ss: ##Key de 'modo' = toggle de rango
@@ -158,11 +182,11 @@ class ReporteUi:
                 ss.date_from = date(hoy.year,1,1)
             if "date_to" not in ss: ##Key del rango toggle date to
                 ss.date_to = hoy
-        ##Componentes para date:
+            ##Componentes para date:
             if "toggle_name_widget" not in ss:
                     ss.toggle_name_widget = False
 
-            if "date" in group.lower(): ##Si es date, agrupamos por mes.
+            if "date" in group.lower() or ss.date_filter==True: ##Si es date, agrupamos por mes.
                 col1, col2 = st.columns(2)
                 with col1:
                     opcion = st.radio("Seleccione agrupación:", opciones, key="opt_agru")
@@ -184,6 +208,8 @@ class ReporteUi:
             self.metric = metric
             self.agg = agg
             self.out_col = out_col
+            if "period" in locals(): self.period = period
+            
         else:
             escribir("No data to group")
         return self
@@ -194,200 +220,77 @@ class ReporteUi:
         group = self.group
         metric = self.metric
         agg = self.agg
+        if ss.date_filter==True:
+            period = self.period
         out_col = self.out_col
         modo = ss.tgl_rango ##Bool que indica si se especificó fecha de datos.
-        self.df = (
-                    self.df.groupby(group)[metric]
+
+        ##ss.data_filter: Filtramos con las fechas establecidas
+        df_base = self.df.copy()
+        if ss.date_filter == True:
+            escribir("Caso 1")
+            self.df_group = (
+                    df_base.groupby([group, period])[metric]
                     .agg(agg_map[agg])
                     .reset_index()
                     .rename(columns={metric:out_col})
                     )
-        if "date" in group.lower(): ##Forzamos date para evitar errores
-            self.df[group] = pd.to_datetime(self.df[group], format="%d-%b-%y", errors="coerce") 
-        
-        
-        if modo ==True:
-            self.df = self.df.loc[self.df[group].between(ss.date_from,ss.date_to)]
+        else:
+            escribir("Caso 2")
+            self.df_group = (
+                    df_base.groupby([group])[metric]
+                    .agg(agg_map[agg])
+                    .reset_index()
+                    .rename(columns={metric:out_col})
+                    )
+
+        ##Usamos period o group dependiendo del caso.
+        if ss.date_filter==True:
+            group = period
+
+        if modo ==True: ##Con modo especificamos rango, forzamos fecha y filtramos rango.
+            self.df_group[group] = pd.to_datetime(self.df_group[group], format="%d-%b-%y", errors="coerce") 
+            self.df_group = self.df_group.loc[self.df_group[group].between(ss.date_from,ss.date_to)]
         
         ##Hacemos un agrupación nueva, ya que al agrupar por fecha de manera normal, muestra 1 row per day y no sirve así
         if "date" in group.lower():
-            self.df[group] = pd.to_datetime(self.df[group], format="%d-%b-%y", errors="coerce") 
-            self.df = ( 
-                        self.df.groupby(self.df[group].dt.to_period(ss.valor_periodo),
+            self.df_group[group] = pd.to_datetime(self.df_group[group], format="%d-%b-%y", errors="coerce")
+            self.df_group = ( 
+                        self.df_group.groupby(self.df_group[group].dt.to_period(ss.valor_periodo),
                         dropna=False)[out_col]
                         .agg(agg_map[agg])
                         .reset_index()
                         .rename(columns={"index": group})
                         )
+        
+        ##Incluímos una serie con porcentajes
+        self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
+        escribir(f"Número de columnas: {len(self.df_group.columns)}")
 
     def show_data(self):
         out_col = self.out_col
         ##Sort
         try:
-            self.df = self.df.sort_values(by=self.group, ascending=True)
+            self.df_group = self.df_group.sort_values(by=self.group, ascending=True)
         except:
             pass
         ## $ format, else = f"{:,.0f}"
-        self.df_ui = self.df.copy()
+        self.df_ui = self.df_group.copy()
+        
+        if "Porcentajes" in self.df.columns:
+            self.df_ui["Porcentajes"] = self.df_ui["Porcentajes"].map("{:.2f}%".format)
+        
         if "amount" in out_col.lower():
             if "suma" in out_col.lower() or "promedio" in out_col.lower():
                 self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
         else:
             self.df_ui[out_col] = self.df_ui[out_col].apply(
                 lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
+        for col in self.df_ui.columns:
+            if "date" in col.lower():
+                self.df_ui[col] = pd.to_datetime(self.df_ui[col], errors="ignore").dt.strftime("%d-%b-%y")
         #show:
         st.dataframe(self.df_ui)
-
-    def set_group_df(self):
-        """
-        Crea un agrupamiento dinámico con Streamlit.
-
-        Permite seleccionar:
-            - Columna de agrupación (no numérica)
-            - Columna de métrica (numérica)
-            - Tipo de agregación (conteo, suma o promedio)
-
-        Muestra el DataFrame resultante y lo formatea si contiene montos.
-        """
-        # st.subheader("Datos agrupados")
-        ss = st.session_state
-        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
-            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
-            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
-            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
-       
-        if "toggle_name_widget" not in ss:
-            ss.toggle_name_widget = False
-        
-        agg_map = {"Conteo": "count", "Suma": "sum", "Promedio": "mean"} ##Dict - Es para que el usuario vea "Conteo" en lugar de "count" por ejemplo
-        out_col = f"{agg} de {metric}" ##nombre de la columna 
-        df_group = (
-            self.df.groupby(group, dropna=False)[metric]
-                   .agg(agg_map[agg])
-                   .reset_index()
-                   .rename(columns={metric: out_col})
-                    )
-
-
-    def controles_ui(self):
-        ss = st.session_state
-        if hasattr(self, "numeric_columns") and hasattr(self, "non_numeric_columns"): ##Verifica si existen listas con las columnas...
-            group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
-            metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
-            agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
-       
-        if "toggle_name_widget" not in ss:
-            ss.toggle_name_widget = False
-
-
-###############################################################################
-            ##Cambiamos el formato dependiendo del caso
-            self.df_ui = df_group.copy()
-            group_low = group.lower()
-            if "date" in group_low: ##Si es date, agrupamos por mes.
-                self._date_group(group, out_col, agg_map, agg)
-            else:
-                dict_names = self.df_ui[group].to_list()
-                modo = st.toggle(f"Especificar {group}", key="name_widget")
-                if modo:
-                    opciones = st.multiselect(group, dict_names, key="multiselect_widget")
-                    if opciones:
-                        self.df_ui = self.df_ui[self.df_ui.iloc[:,0].isin(opciones)]
-                        st.write((lambda x: f">Opciones = {', '.join(x)}")(dict_names))
-            try:
-                self.df_ui = self.df_ui.sort_values(by=group, ascending=True)
-            except:
-                pass
-            ##Antes de convertir a string, {df} será un respaldo.
-            self.df = self.df_ui.copy()
-            if "amount" in out_col.lower():
-                if "suma" in out_col.lower() or "promedio" in out_col.lower():
-                    self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
-            else:
-                self.df_ui[out_col] = self.df_ui[out_col].apply(
-                    lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
-            tiposs = self.df_ui[group].dtype
-            # st.write(f"datos agrupados correctos. tipo de dato = {tiposs}")
-            st.dataframe(self.df_ui, hide_index=True)
-        else:
-            st.warning("Ejecuta primero fix_numbers() para detectar columnas.")
-            return
-        self.group = group
-        self.metric = metric
-        self.agg = agg
-        self.out_col = out_col
-        return
-
-
-    def _date_group(self, group, out_col, agg_map, agg):
-        """Permitirá manipular los datos agrupados y creará botones para mostrar por diferentes periodos.
-        """
-        ##Convertir a fecha y mapping
-        ss = st.session_state
-        
-        hoy = date.today()
-        self.df_ui[group] = pd.to_datetime(self.df_ui[group], format="%d-%b-%y", errors="coerce") 
-        df_base = self.df_ui
-        opciones = ["Mes", "Trimestre", "Año"]
-        map_periodo = {"Mes":"M", "Trimestre":"Q", "Año":"Y"}
-        
-        if "opt_agru" not in ss:
-            ss.opt_agru = "Mes"
-        if "tgl_rango" not in ss:
-            ss.tgl_rango = False
-        if "date_from" not in ss:
-            ss.date_from = date(hoy.year,1,1)
-        if "date_to" not in ss:
-            ss.date_to = hoy
-        
-        ##Componentes interactivos:
-        col1, col2 = st.columns(2)
-        with col1:
-            opcion = st.radio("Seleccione agrupación:", opciones, key="opt_agru")
-            valor = map_periodo[opcion]
-        with col2:
-            modo = st.toggle("Especificar rango:", key="tgl_rango")
-            if modo:
-                subcol1, subcol2 = st.columns(2)
-                with subcol1:
-                    start_year = date(hoy.year, 1,1)
-                    # rango_0 = subcol1.date_input("Desde", value = ss.date_from, key = "date_from_widget")
-                    # rango_0 = pd.to_datetime(rango_0)
-                    ss.date_from = pd.to_datetime(st.date_input("Desde", value = ss.date_from, key="date_from_widget"))
-                with subcol2:
-                    ss.date_to = pd.to_datetime(st.date_input("Hasta", value = ss.date_to, key="date_to_widget"))
-                    # rango_1 = subcol2.date_input("Hasta", value= ss.date_to, key = "date_to_widget")
-                    # rango_1 = pd.to_datetime(rango_1)
-        #Filtramos
-        if modo:
-            df_base = df_base.loc[df_base[group].between(ss.date_from,ss.date_to)].copy()
-        
-        ##Hacemos agrupación
-        self.df_ui = (
-            df_base.groupby(df_base[group].dt.to_period(valor), 
-                dropna=False)[out_col]
-                .agg(agg_map[agg])
-                .reset_index()
-                .rename(columns={"index": group})
-            )
-
-    def porcentajes(self):
-        """Añade una columna con porcentajes y actualiza el objeto self.df_ui y self.df
-        """
-        group = self.group ##Nombres
-        metric = self.metric ##Numeros
-        agg = self.agg ##No recuerdo
-        out_col = self.out_col
-        self.df["Porcentaje"] = self.df[out_col] / self.df[out_col].sum()*100
-        self.df_ui = self.df.copy()
-        
-        #button
-        key_flag = "mostrar_porcentajes"
-        st.session_state.setdefault(key_flag, False)
-        if st.button("Mostrar porcentajes"):##Se cambia de estado
-            st.session_state[key_flag] = not st.session_state[key_flag]
-        if st.session_state[key_flag] == True:
-            self.set_group_df()
         
 
 def boton_escala():
