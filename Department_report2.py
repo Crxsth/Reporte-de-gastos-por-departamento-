@@ -220,42 +220,41 @@ class ReporteUi:
         group = self.group
         metric = self.metric
         agg = self.agg
+        
         if ss.date_filter==True:
-            period = self.period
+            period = self.period ##Period es nuestra variable adicional para el caso de mostrar nombre y fecha, ejemplo: period = "Transaction_date"
         out_col = self.out_col
         modo = ss.tgl_rango ##Bool que indica si se especificó fecha de datos.
-
         ##ss.data_filter: Filtramos con las fechas establecidas
-        df_base = self.df.copy()
-        if ss.date_filter == True:
-            escribir("Caso 1")
-            self.df_group = (
-                    df_base.groupby([group, period])[metric]
-                    .agg(agg_map[agg])
-                    .reset_index()
-                    .rename(columns={metric:out_col})
-                    )
-        else:
-            escribir("Caso 2")
+        df_base = self.df
+        if ss.date_filter == True: ##Si tenemos group & period
+            period_key = pd.to_datetime(df_base[period], format="%d-%b-%y", errors="coerce")
+
+            if ss.date_filter ==True: ##toggle para agrupar
+                if modo == True:
+                    period_key = pd.to_datetime(period_key, format="%d-%b-%y", errors="coerce")
+                    period_key = period_key.loc[period_key.between(ss.date_from, ss.date_to)]
+            period_key = period_key.dt.to_period(ss.valor_periodo)
+            period_key.name = period        
+            self.df_group = (df_base.groupby(
+                                [period_key, group])[metric]
+                                .agg(agg_map[agg])
+                                .reset_index()
+                                .rename(columns={metric:out_col}))
+        else: ##Caso normal
             self.df_group = (
                     df_base.groupby([group])[metric]
                     .agg(agg_map[agg])
                     .reset_index()
                     .rename(columns={metric:out_col})
                     )
-
-        ##Usamos period o group dependiendo del caso.
-        if ss.date_filter==True:
-            group = period
-
-        if modo ==True: ##Con modo especificamos rango, forzamos fecha y filtramos rango.
-            self.df_group[group] = pd.to_datetime(self.df_group[group], format="%d-%b-%y", errors="coerce") 
-            self.df_group = self.df_group.loc[self.df_group[group].between(ss.date_from,ss.date_to)]
         
-        ##Hacemos un agrupación nueva, ya que al agrupar por fecha de manera normal, muestra 1 row per day y no sirve así
+        ##Agrupa si nuestra columna principal es 'date'
         if "date" in group.lower():
-            self.df_group[group] = pd.to_datetime(self.df_group[group], format="%d-%b-%y", errors="coerce")
-            self.df_group = ( 
+            self.df_group[group] = pd.to_datetime(self.df_group[group], format="%d-%b-%y", errors="coerce")##Convierte a fecha
+            if modo ==True: ##Agrupa entre periodos en su caso
+                self.df_group = self.df_group.loc[self.df_group[group].between(ss.date_from,ss.date_to)]
+            self.df_group = (
                         self.df_group.groupby(self.df_group[group].dt.to_period(ss.valor_periodo),
                         dropna=False)[out_col]
                         .agg(agg_map[agg])
@@ -264,10 +263,11 @@ class ReporteUi:
                         )
         
         ##Incluímos una serie con porcentajes
-        self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
-        escribir(f"Número de columnas: {len(self.df_group.columns)}")
+        # self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
+        # escribir(f"Número de columnas: {len(self.df_group.columns)}")
 
     def show_data(self):
+        ss = st.session_state
         out_col = self.out_col
         ##Sort
         try:
@@ -282,13 +282,18 @@ class ReporteUi:
         
         if "amount" in out_col.lower():
             if "suma" in out_col.lower() or "promedio" in out_col.lower():
-                self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
+                try:
+                    self.df_ui[out_col] = self.df_ui[out_col].apply(lambda x: f"${x:,.2f}")
+                except:
+                    escribir("No se pudo convertir a moneda, ni modo")
         else:
             self.df_ui[out_col] = self.df_ui[out_col].apply(
                 lambda x: f"{x:,.0f}" if isinstance(x, (int,float)) else x )
         for col in self.df_ui.columns:
             if "date" in col.lower():
-                self.df_ui[col] = pd.to_datetime(self.df_ui[col], errors="ignore").dt.strftime("%d-%b-%y")
+                if col.lower() != self.group.lower(): ##Fuerza date solo si no es nuestro valor principal
+                    pass
+                    # self.df_ui[col] = pd.to_datetime(self.df_ui[col], errors="ignore").dt.strftime("%d-%b-%y")
         #show:
         st.dataframe(self.df_ui)
         
