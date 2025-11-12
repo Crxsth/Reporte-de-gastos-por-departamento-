@@ -160,7 +160,7 @@ class ReporteUi:
                 ss.date_filter = False
             if "name_filter" not in ss:
                 ss.name_filter = False
-            col_date_filter, col_name_filter = st.columns(2)
+            col_date_filter, col_name_filter = st.columns(2) ##Toggles filters
             with col_date_filter:
                periodo = st.toggle("Filtrar por fechas:", key = "date_filter")
             with col_name_filter:
@@ -180,17 +180,16 @@ class ReporteUi:
             
             ##Crea los filtros por fecha y por nombre:
             dict_names = {item:0 for item in self.df_ui[group]} ##Diccionario, key=name, item=0
-
             if ss.date_filter == True and ss.name_filter==True:
                 col_add1, col_add2 = st.columns(2)
                 with col_add1:
-                    filtro = st.multiselect(group, dict_names, key="multi_select_widget")
+                    filtro = st.multiselect("Filtro", dict_names, key="multi_select_widget", placeholder=f"Seleccione {group}")
                 with col_add2:
                     period = st.selectbox("Fechas", self.extra_columns, index=0)
             elif ss.date_filter == True:
                 period = st.selectbox("Fechas", self.extra_columns, index=0)
-            else:
-                filtro = st.multiselect(group, dict_names, key="multi_select_widget")
+            elif ss.name_filter == True:
+                filtro = st.multiselect(group, dict_names, key="multi_select_widget", placeholder=f"Seleccione {group}")
             
             out_col = f"{agg} de {metric}" ##nombre de la columna 
             
