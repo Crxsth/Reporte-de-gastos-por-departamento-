@@ -158,9 +158,17 @@ class ReporteUi:
             ##Widget para añadir 'date' como filtro adicional
             if "date_filter" not in ss:
                 ss.date_filter = False
-            periodo = st.toggle("Filtrar por fechas:", key = "date_filter")
+            if "name_filter" not in ss:
+                ss.name_filter = False
+            col_date_filter, col_name_filter = st.columns(2)
+            with col_date_filter:
+               periodo = st.toggle("Filtrar por fechas:", key = "date_filter")
+            with col_name_filter:
+               filtro_nombre = st.toggle("Especificar nombre", key = "name_filter")
+               
             if ss.date_filter == True:
-                self._modificar_listacampos()
+                self._modificar_listacampos() ##Método que crea una lista con los campos de fecha
+            
             
             ##Select boxes
             group = st.selectbox("Columna de agrupación", self.non_numeric_columns, index=0) ##head.strings
@@ -169,8 +177,21 @@ class ReporteUi:
                 metric = st.selectbox("Columna numérica", self.numeric_columns, index=0)##head.ints
             with col_agg:
                 agg = st.selectbox("Métrica de agregación", ["Conteo", "Suma", "Promedio"], index=0) ##Metrics ofc
-            if ss.date_filter == True:
+            
+            ##Crea los filtros por fecha y por nombre:
+            dict_names = {item:0 for item in self.df_ui[group]} ##Diccionario, key=name, item=0
+
+            if ss.date_filter == True and ss.name_filter==True:
+                col_add1, col_add2 = st.columns(2)
+                with col_add1:
+                    filtro = st.multiselect(group, dict_names, key="multi_select_widget")
+                with col_add2:
+                    period = st.selectbox("Fechas", self.extra_columns, index=0)
+            elif ss.date_filter == True:
                 period = st.selectbox("Fechas", self.extra_columns, index=0)
+            else:
+                filtro = st.multiselect(group, dict_names, key="multi_select_widget")
+            
             out_col = f"{agg} de {metric}" ##nombre de la columna 
             
             ##Aquí quiero poner que modifique group y quite "Transaction date" de las opciones del select box
@@ -223,10 +244,17 @@ class ReporteUi:
         
         if ss.date_filter==True:
             period = self.period ##Period es nuestra variable adicional para el caso de mostrar nombre y fecha, ejemplo: period = "Transaction_date"
+
         out_col = self.out_col
         modo = ss.tgl_rango ##Bool que indica si se especificó fecha de datos.
         ##ss.data_filter: Filtramos con las fechas establecidas
         df_base = self.df
+        if ss.name_filter == True:
+            filtro = ss.multi_select_widget
+            if filtro: ##Revisamos que no esté vacío; filtro 
+                escribir(f"Filtro we: {filtro}")
+                df_base = df_base[df_base[group].isin(filtro)]
+        
         if ss.date_filter == True: ##Si tenemos group & period
             period_key = pd.to_datetime(df_base[period], format="%d-%b-%y", errors="coerce")
 
@@ -265,6 +293,7 @@ class ReporteUi:
         ##Incluímos una serie con porcentajes
         # self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
         # escribir(f"Número de columnas: {len(self.df_group.columns)}")
+        return self
 
     def show_data(self):
         ss = st.session_state
