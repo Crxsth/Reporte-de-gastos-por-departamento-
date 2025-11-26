@@ -136,7 +136,7 @@ class ReporteUi:
         self.log = []
         self.numeric_columns = list(getattr(base_df, "numeric_columns",[]))
         self.non_numeric_columns = list(getattr(base_df, "non_numeric_columns",[]))
-        
+    
     def _modificar_listacampos(self):
         """Cambia las listas de campos para el caso de filtrar por date"""
         lista_var = []
@@ -290,13 +290,15 @@ class ReporteUi:
                         )
         
         ##Incluímos una serie con porcentajes
-        # self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
-        # escribir(f"Número de columnas: {len(self.df_group.columns)}")
+        self.df_group["Porcentajes"] = self.df_group[out_col] / self.df_group[out_col].sum() *100
+        
         return self
 
     def show_data(self):
         ss = st.session_state
         out_col = self.out_col
+        group = self.group
+        metric = self.metric
         ##Sort
         try:
             self.df_group = self.df_group.sort_values(by=self.group, ascending=True)
@@ -305,8 +307,9 @@ class ReporteUi:
         ## $ format, else = f"{:,.0f}"
         self.df_ui = self.df_group.copy()
         
-        if "Porcentajes" in self.df.columns:
+        if "Porcentajes" in self.df_ui.columns:
             self.df_ui["Porcentajes"] = self.df_ui["Porcentajes"].map("{:.2f}%".format)
+            
         
         if "amount" in out_col.lower():
             if "suma" in out_col.lower() or "promedio" in out_col.lower():
@@ -324,6 +327,13 @@ class ReporteUi:
                     # self.df_ui[col] = pd.to_datetime(self.df_ui[col], errors="ignore").dt.strftime("%d-%b-%y")
         #show:
         st.dataframe(self.df_ui)
+        
+        # --- Gráfica de barras ---
+        df_graph = self.df_group ##no usamos df_ui ya que este tiene valores str
+        graph_group_name = out_col
+        st.bar_chart(
+                    df_graph, x=group, y=graph_group_name, y_label = "Montos", horizontal=False,
+                    ) ##Group= str as name; out_col = metric_column.name
         
 
 def boton_escala():
@@ -445,6 +455,8 @@ def show_button(nombre):
         st.session_state[key_flag] = not st.session_state[key_flag]
     if st.session_state[key_flag]:
         print("A")
+
+
 def main():
     """
     Función principal del módulo.
@@ -497,6 +509,28 @@ def main():
     ui.componentes_interactivos()
     ui.agrupar()
     ui.show_data()
+    
+    
+    #Tests:
+    pruebas = False
+    if pruebas == True:
+        with st.sidebar:
+            depto = st.selectbox(
+                "Selecciona un departamento",
+                ["Ventas", "Finanzas", "Recursos Humanos"]
+            )
+            st.write(f"Departamento elegido: {depto}")
+        contenedor = st.container()
+
+        with contenedor:
+            st.subheader("Sección agrupada")
+            st.write("Este texto y este slider están en el mismo container.")
+            valor = st.slider("Elige un valor", 0, 100, 50)
+            st.write(f"Valor seleccionado: {valor}")
+
+
+
+
     
     # ui.set_group_df()
     # ui.porcentajes()
