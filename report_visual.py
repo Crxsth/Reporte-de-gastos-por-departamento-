@@ -327,14 +327,36 @@ class ReporteUi:
                     # self.df_ui[col] = pd.to_datetime(self.df_ui[col], errors="ignore").dt.strftime("%d-%b-%y")
         #show:
         st.dataframe(self.df_ui)
-        
+
+    def graficar(self):
         # --- Gráfica de barras ---
-        df_graph = self.df_group ##no usamos df_ui ya que este tiene valores str
-        graph_group_name = out_col
-        st.bar_chart(
-                    df_graph, x=group, y=graph_group_name, y_label = "Montos", horizontal=False,
-                    ) ##Group= str as name; out_col = metric_column.name
+        ss = st.session_state
+        out_col = self.out_col #colname
+        group = self.group #dato de agrupación
+        metric = self.metric #métrica, such as suma, promedio, count
         
+        if "graph_select" not in ss:
+            ss.graph_select = "barras"
+        
+        nombres = ["Barras","Lineas","Pastel"]
+        col1, col2 = st.columns(2)
+        with col1:
+            opcion = st.radio("Tipo de gráfica", nombres, horizontal=True)
+        # with col2:
+            # opcion = st.radio("", "None")
+        
+        
+        df_graph = self.df_group ##no usamos df_ui ya que este tiene valores str
+        if opcion == "Barras":
+            st.bar_chart(
+                    df_graph, x=group, y=out_col, y_label = out_col, horizontal=False,
+                    ) ##Group= str as name; out_col = metric_column.name
+        elif opcion == "Lineas":
+            st.line_chart(data=df_graph, x=group, y = out_col, y_label = out_col)
+            # st.bar_chart(df_graph, x=group, y = graph_group_name, y_label = "Montos", horizontal=False
+            
+        else:
+            escribir("Falso we")
 
 def boton_escala():
     """
@@ -509,10 +531,16 @@ def main():
     ui.componentes_interactivos()
     ui.agrupar()
     ui.show_data()
+    ui.graficar()
     
     
     #Tests:
     pruebas = False
+    with st.sidebar:
+        st.button("Datos agrupados")
+    with st.sidebar:
+        st.button("Datos 2")
+        
     if pruebas == True:
         with st.sidebar:
             depto = st.selectbox(
@@ -520,7 +548,7 @@ def main():
                 ["Ventas", "Finanzas", "Recursos Humanos"]
             )
             st.write(f"Departamento elegido: {depto}")
-        contenedor = st.container()
+            contenedor = st.container()
 
         with contenedor:
             st.subheader("Sección agrupada")
@@ -528,10 +556,6 @@ def main():
             valor = st.slider("Elige un valor", 0, 100, 50)
             st.write(f"Valor seleccionado: {valor}")
 
-
-
-
-    
     # ui.set_group_df()
     # ui.porcentajes()
     # ss.ui = ui
