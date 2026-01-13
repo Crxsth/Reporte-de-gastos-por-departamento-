@@ -16,6 +16,7 @@ Header: ["Report ID", "Department", "Employee", "Report Type", "Amount", "Transa
 """
 import time
 import pandas as pd
+import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import zipfile
@@ -479,7 +480,7 @@ def show_button(nombre):
         print("A")
 
 
-def main():
+def report_render():
     """
     Función principal del módulo.
 
@@ -494,17 +495,17 @@ def main():
     ss = st.session_state
     
     ##Execution.count(), por temas de revisión
-    if "contador_main" not in ss:
-        ss.contador_main = 1
-    else:
-        ss.contador_main +=1
-        # escribir(f"contador we: {ss.contador_main}")
-        st.write(f"ejecuciones we: {ss.contador_main}")
+    if 1>2:
+        if "contador_main" not in ss:
+            ss.contador_main = 1
+        else:
+            ss.contador_main +=1
+            # escribir(f"contador we: {ss.contador_main}")
+            st.write(f"ejecuciones we: {ss.contador_main}")
 
     archivo_base, archivo_id = obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos.
     if archivo_base is None:
         st.stop()
-
     if "archivo_id" not in ss: ##Lo inicializamos si no existía
         ss.archivo_id = None
     
@@ -565,5 +566,6 @@ def main():
     # ExecTime = Timer1 - Timer0
     # print(f"Execution time: {ExecTime:,.2f}s")
     
-if __name__ == "__main__":
-    main()
+
+# if __name__ == "__main__":
+    # main()
