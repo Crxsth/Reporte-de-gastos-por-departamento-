@@ -117,17 +117,24 @@ class ReporteDf:
         self.numeric_columns = []
         self.non_numeric_columns = []
         
-        for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
-            serie_base = self.df[col]
-            serie_converted = pd.to_numeric(serie_base.str.replace(
-            r"[^\d\.-]", "", regex=True), errors="coerce")
-            number_percent = serie_converted.notna().mean()  #% de valores numbers.
-            if number_percent>=0.95 or "amount" in col.lower():
-                self.df[col] = serie_converted
-                self.numeric_columns.append(col)
-                self.log.append(f"number_change[{i}]-[{col}]")
+        # for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
+        for i, col in enumerate(self.df.columns): ##object = strings and all
+            if self.df[col].dtype == "object":
+                serie_base = self.df[col]
+                serie_converted = pd.to_numeric(serie_base.str.replace(
+                r"[^\d\.-]", "", regex=True), errors="coerce")
+                number_percent = serie_converted.notna().mean()  #% de valores numbers.
+                if number_percent>=0.95 or "amount" in col.lower():
+                    self.df[col] = serie_converted
+                    self.numeric_columns.append(col)
+                    self.log.append(f"number_change[{i}]-[{col}]")
+                else:
+                    self.non_numeric_columns.append(col)
             else:
-                self.non_numeric_columns.append(col)
+                if self.df[col].dtype.kind in ("i", "u", "f"):
+                    self.numeric_columns.append(col)
+                else:
+                    self.non_numeric_columns.append(col)
         return self
     
 class ReporteUi:
@@ -493,6 +500,8 @@ def report_render():
     Esta función se ejecuta solo si el módulo es invocado directamente.
     """
     ss = st.session_state
+    Timer0 = time.time()
+
     
     ##Execution.count(), por temas de revisión
     if 1>2:
@@ -535,13 +544,18 @@ def report_render():
     ui.graficar()
     
     
-    #Tests:
+    
+        # ui.set_group_df()
+    # ui.porcentajes()
+    # ss.ui = ui
+    
+    
+    Timer1 = time.time()
+    ExecTime = Timer1 - Timer0
+    escribir(f"Execution time: {ExecTime:,.2f}s")
+    
+
     pruebas = False
-    with st.sidebar:
-        st.button("Datos agrupados")
-    with st.sidebar:
-        st.button("Datos 2")
-        
     if pruebas == True:
         with st.sidebar:
             depto = st.selectbox(
@@ -557,15 +571,5 @@ def report_render():
             valor = st.slider("Elige un valor", 0, 100, 50)
             st.write(f"Valor seleccionado: {valor}")
 
-    # ui.set_group_df()
-    # ui.porcentajes()
-    # ss.ui = ui
-    
-    
-    # Timer1 = time.time()
-    # ExecTime = Timer1 - Timer0
-    # print(f"Execution time: {ExecTime:,.2f}s")
-    
-
-# if __name__ == "__main__":
-    # main()
+if __name__ == "__main__":
+    report_render()

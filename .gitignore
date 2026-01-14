@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated files
+exec_time.csv
+
+# Backups / tests
+respaldo.patch
+Archivo_original.py
+
