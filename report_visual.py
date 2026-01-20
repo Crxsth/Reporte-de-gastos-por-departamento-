@@ -533,7 +533,7 @@ def report_render():
     if "reporte" not in st.session_state: ##Si no hemos ejecutado el formatting, stop.
         st.stop()
 
-    st.title("Reporte de gastos")
+    # st.title("Reporte de gastos")
     vista_previa(reporte.df, 20, "Datos generales", key="datos_generales_0")
     
     ##Datos agrupados

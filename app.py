@@ -1,17 +1,19 @@
 """2026.01.09. Este módulo inicializa streamlit y coordina todo"""
+import time
 import csv
 import os
 import pandas as pd
-
 import streamlit as st
 import streamlit.components.v1 as components
 import sys
 from datetime import datetime
-import report_visual
-import time
-
+##Libraries:
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
+# import core
+import excel_workspace #1
+import report_visual #2
+import conciliador #8
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
 
 def save_exec_times_to_csv(csv_path="exec_time.csv"):
@@ -144,6 +146,31 @@ def pagina_menu():
 
     """)
 
+
+def obtener_dataframe(): ##Function that selects a file to work with. 
+    """
+    Abre un selector de archivos en Streamlit y llama al core para cargar el archivo.
+
+    Soporta archivos .csv, .xlsx y .xlsm.  
+    Si es CSV, lo lee con codificación 'latin-1'.  
+    Si es Excel, usa la función personalizada `leer_file()`.
+    Returns:
+        Datos cargados desde el archivo.
+    """
+    archivo_base = st.file_uploader( ##Devuelve un archivo en memoria.
+        "Selecciona el archivo de Excel o CSV",
+        type=["csv", "xlsx", "xlsm"]
+        )
+    st.info("Sube un archivo para continuar.")
+    
+    if not archivo_base:
+        return None, None
+    
+    archivo_id = getattr(archivo_base, "name", None)  # <- ID estable del upload
+    archivo_leido = core.load_file(archivo_base)
+    return archivo_leido, archivo_id
+
+
 def main():
     ss = st.session_state
     start = time.perf_counter()
@@ -171,7 +198,7 @@ def main():
             ss.page="menu"
         st.divider()
         if st.button("Excel workspace", width="stretch"):
-            ss.page="excel"
+            ss.page="Excel workspace"
         if st.button("Reporte visual", width="stretch"):
             ss.page="report"
         if st.button("Separar archivos", width="stretch"):
@@ -180,17 +207,29 @@ def main():
             ss.page="unir"
         if st.button("OCR", width="stretch"):
             ss.page="ocr"
+        if st.button("7 i forgot", width = "stretch"):
+            ss.page="7"
+        if st.button("Conciliate", width = "stretch"):
+            ss.page="conciliate"
     
     
     if ss.page not in ss:
         page="menu"
     page = ss.page
     
-    if page=="menu": 
+    if page=="menu":
         pagina_menu()
-    elif page=="report":
+    elif page=="Excel workspace": ##1
+        st.title("Excel Workspace")
+        excel_workspace.workspace_render()
+    
+    elif page=="report": ##2
+        st.title("Reporte visual")
         report_visual.report_render()
-        
+    elif page=="conciliate": ##8
+        st.title("Conciliar")
+        conciliador.render_conciliate()
+    
     
     else:
         st.write("JAJAJA NO LE SALIÓ")
