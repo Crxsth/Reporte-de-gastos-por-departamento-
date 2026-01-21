@@ -32,7 +32,6 @@ def vista_previa(df, n_default=20, titulo=None, key=None):
         
 def workspace_render():
     archivo_base, archivo_id = ui.obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos
-    st.info("Sube un archivo para continuar")
     ss = st.session_state
     
     if archivo_base is None:
@@ -43,7 +42,7 @@ def workspace_render():
     
     # st.dataframe(archivo_base)
 
-    show_df(archivo_base, n_default=20, titulo=resultado,key=archivo_id)
+    vista_previa(archivo_base, n_default=20, titulo=resultado,key=archivo_id)
     
     
 

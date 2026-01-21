@@ -234,7 +234,8 @@ def main():
     else:
         st.write("JAJAJA NO LE SALIÓ")
     
-    
+    # st.write("ss")
+    # st.write(ss)
     log_render_time(time.perf_counter() - start)
 
 if __name__ == "__main__":

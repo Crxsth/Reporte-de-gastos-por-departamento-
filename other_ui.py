@@ -22,6 +22,7 @@ def obtener_dataframe(texto= None, key=None, label=None): ##Function that select
     
     
     if not archivo_base:
+        st.info("Sube un archivo para continuar") 
         return None, None
     
     # archivo_id = getattr(archivo_base, "name", None)  # <- ID estable del upload
