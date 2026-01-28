@@ -211,6 +211,7 @@ def main():
             ss.page="7"
         if st.button("Conciliate", width = "stretch"):
             ss.page="conciliate"
+            ss.first_run = True
     
     
     if ss.page not in ss:
