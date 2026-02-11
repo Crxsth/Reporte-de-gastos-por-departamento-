@@ -3,11 +3,20 @@ import sys
 import core
 import other_ui as ui
 
+from pathlib import Path
+import pandas as pd
+
+DEV_MODE = True  # ⬅️ cambia a False cuando ya no lo quieras
+
+DEV_PATH = Path(r"C:\Users\criis\Documents\Coding\Conciliation")
+DEV_BASE = DEV_PATH / "Datos1.csv"
+DEV_BANK = DEV_PATH / "Datos_banco.csv"
+
 
 def init_rows():
     ss = st.session_state
     if "rows" not in ss:
-        ss.rows = [1]  # 1 fila inicial
+        ss.rows = [0,1]  # 1 fila inicial
 
 
 def add_row():
@@ -78,6 +87,17 @@ def render_simple_rules():
     ss = st.session_state
     df_base = ss.get("df_base")
     df_bank = ss.get("df_banco")
+    
+    ##3 buttons
+    title1, title2, title3 = st.columns(3)
+    with title1:
+        st.button("Perfect match", key="title1_match", width="stretch")
+    with title2:
+        st.button("Suma",key="title2_suma", width="stretch")
+    with title3:
+        st.button("All", key="title3_all", width="stretch")
+    
+    
     ##Titles
     h1, h2 = st.columns(2)
     h1.markdown("**Datos Base**")
@@ -92,13 +112,11 @@ def render_simple_rules():
                 select_df1(df_base, idx)
             with col2:
                 select_df2(df_bank, idx)
-                
-    
 
 
 def render_conciliate():
     ss = st.session_state
-
+    
     ##File uploader
     col_data_base, col_data_bank = st.columns(2)
     
@@ -110,11 +128,21 @@ def render_conciliate():
         ss.advanced_settings = False
     st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
     
-    with col_data_base:
-        df_base, base_id = ui.obtener_dataframe(label="Database data", key="base")
-    with col_data_bank:
-        df_bank, bank_id = ui.obtener_dataframe(label="Bank data",key="banco")
-        if df_bank is None: st.stop()
+    if DEV_MODE == True:## Lector de archivos
+        if "df_base" not in ss:
+            ss.df_base = pd.read_csv(DEV_BASE)
+        if "df_banco" not in ss:
+            ss.df_banco = pd.read_csv(DEV_BANK)
+        
+        df_base = ss.df_base
+        df_bank = ss.df_banco
+    
+    else:
+        with col_data_base:
+            df_base, base_id = ui.obtener_dataframe(label="Database data", key="base")
+        with col_data_bank:
+            df_bank, bank_id = ui.obtener_dataframe(label="Bank data",key="banco")
+            if df_bank is None: st.stop()
     st.write(ss)
     
     if df_base is None or df_bank is None:
@@ -135,6 +163,7 @@ def render_conciliate():
     ##Si es la primera vez, coloca estos por default
     if ss.first_run == True: ##Esto pone por default 2 columnas, sino pues no
         try:
+            
             date_col = next(x for x in df_base.columns if "date" in x.lower()) ##Obtenemos la columna con la palabra 'date'
             ss["df1_col_0"] = next(c for c in df_base.columns if "date" in c.lower())
             ss["df2_col_0"] = next(c for c in df_bank.columns if "date" in c.lower())
@@ -151,7 +180,6 @@ def render_conciliate():
     if ss.advanced_settings:
         render_advanced_rules()
     else:
-        st.write("Te la creíste we")
         render_simple_rules()    
     
     
@@ -161,12 +189,24 @@ def render_conciliate():
     
     ##Lógica de conciliación
     n = len(ss.rows)
-    df_bank["prob"] = 0
+    
     df_copy = df_bank.copy()
     if not "bank_copies" in ss:##Almacena los df_copy de cada iteración per amount
         ss.bank_copies = []
     ss.bank_copies.clear()
     st.divider()
+    
+    ##No quitar. Estos valores son obtenidos en los selectboxes y se almacenan en el 'ss'
+    base_cols = [ss[f"df1_col_{i}"] for i in ss.rows]
+    bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
+
+    if 1>0:
+        result = core.conciliador(
+            df_base=df_base,
+            df_bank=df_bank,
+            base_cols=base_cols,
+            bank_cols=bank_cols
+            )
     
     bool_var = False
     if bool_var ==True:

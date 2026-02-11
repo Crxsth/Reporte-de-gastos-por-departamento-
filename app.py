@@ -186,7 +186,10 @@ def main():
     ss.contador_main = ss.get("contador_main", 0) + 1
     render_client_timer("timer_data")
     if ss.contador_main %10 ==0:
-        save_exec_times_to_csv()
+        try:
+            save_exec_times_to_csv()
+        except:
+            pass
     
     st.write(f"ejecuciones we: {ss.contador_main}")
 
@@ -197,18 +200,18 @@ def main():
         if st.button("Main Menu", width="stretch"):
             ss.page="menu"
         st.divider()
-        if st.button("Excel workspace", width="stretch"):
-            ss.page="Excel workspace"
+        # if st.button("Excel workspace", width="stretch"):
+            # ss.page="Excel workspace"
         if st.button("Reporte visual", width="stretch"):
             ss.page="report"
-        if st.button("Separar archivos", width="stretch"):
-            ss.page="separar"
-        if st.button("Unir archivos", width="stretch"):
-            ss.page="unir"
-        if st.button("OCR", width="stretch"):
-            ss.page="ocr"
-        if st.button("7 i forgot", width = "stretch"):
-            ss.page="7"
+        # if st.button("Separar archivos", width="stretch"):
+            # ss.page="separar"
+        # if st.button("Unir archivos", width="stretch"):
+            # ss.page="unir"
+        # if st.button("OCR", width="stretch"):
+            # ss.page="ocr"
+        # if st.button("7 i forgot", width = "stretch"):
+            # ss.page="7"
         if st.button("Conciliate", width = "stretch"):
             ss.page="conciliate"
             ss.first_run = True
