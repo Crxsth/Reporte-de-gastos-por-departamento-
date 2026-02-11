@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 import numpy
 import sys
@@ -136,19 +137,14 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     """
     ##convierte los rows en una lista
-    
+    timer1 = time.time()
     
     df_base["prob"] = 0
     for col in base_cols: ##Crea columnas para añadir puntos del match
         df_base[f"{col} match"] = 0
     df_bank["total matches"] = 0
     df_base["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
-    print("df_bank:")
-    print(df_base)
-    print(base_cols)
-    print(bank_cols)
-    # print(bank_cols)
-    # if bool_var ==True:
+    n = len(base_cols)
     
     for idx_bank in df_bank.index: ##por cada transacción
         df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
@@ -166,9 +162,21 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
             
                 if valor_bank == valor_base:
                     print(f"Found: {valor_bank} == {valor_base}")
-                    df_base.loc[idx_base, f"{dato} match"] = 1
+                    df_var.loc[idx_base, f"{dato} match"] = 1
                 else:
                     count = count +1
+            match_cols = [f"{dato} match" for dato in base_cols] ##Crea una lista: ["Date match","Amount match"]
+        
+        ##df_var almacena aquellos con >0 matches
+        df_var["prob"] = df_var[match_cols].sum(axis=1) ##Suma de los datos
+        df_var = df_var[df_var["prob"]!=0]
+        # df_var = df_var.where(df_var["prob"] == 0)
+        # print(df_var)
+            
+        # df_var = df_var["prob"]!=0
+        timer2 = time.time()
+        tiempo = timer2-timer1
+        print(f"Tiempo de ejecución: {tiempo:.4f}")
         print(f"Contador: {count}")
         # print("Valor buscado:")
         # print(df_bank.loc[idx_bank])
@@ -180,7 +188,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
             # base_matching_rule_n = base_cols[i]
     
     
-    df_bank.to_csv("Datos del banco jan 31, 2026.csv")
+    # df_bank.to_csv("Datos del banco jan 31, 2026.csv")
     if 1>2:
         for row in ss.rows:
             
