@@ -1,8 +1,11 @@
 import time
-import pandas as pd
+import csv
+import io
 import numpy
-import sys
+import pandas as pd
+from pathlib import Path
 import re
+import sys
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
@@ -20,7 +23,7 @@ class ReporteDf:
         numeric_columns (list): columnas numéricas detectadas.
         non_numeric_columns (list): columnas no numéricas detectadas.
     """
-    def __init__(self,df):
+    def __init__(self,df,name=None):
         """
         Inicializa la instancia con una copia del DataFrame original.
 
@@ -29,25 +32,69 @@ class ReporteDf:
         """
         # self.df_original =df.copy()
         self.df = df.copy()
+        df = self.df
+        self.data_list = [df.columns.tolist()] + df.values.tolist()
         self.log = []
 
-    def fix_header(self): 
+    def fix_header(self):
         """
         Corrige encabezados vacíos o numéricos.
 
-        Si todas las columnas son 'Unnamed' o son numéricas,
+        Si todas las columnas son 'Unnamed' o son numéricas, o desigual
         usa la primera fila como encabezado y la elimina del cuerpo.
 
         Returns:
             ReporteDf: devuelve self para permitir encadenamiento.
         """
-        cols = self.df.columns.astype(str)
-        if (
-        all(str(c).startswith("Unnamed") for c in cols)
-        or all(c.isdigit() for c in cols)
-        ): ##Si un dataframe no tiene header, este viene como "unamed"
-            self.df.columns = self.df.iloc[0] ##Primera fila como encabezado
-            self.df = self.df.drop(self.df.index[0]) ##Elimina primera fila.
+        matrix = self.data_list
+        dict_idx = {}
+        PLUS_WORDS = [
+                "date","posting date","transaction date","value date",
+                "description","details","memo","narrative","reference","ref","id","txn id",
+                "amount","debit","credit","balance","running balance",
+                "currency","fx","exchange rate",
+                "vendor","payee","merchant","customer","name",
+                "account","account number","iban","swift",
+                "category","type","status",
+                "invoice","bill","receipt","report",
+                "department","project","cost center","cc","gl","ledger","code"
+            ]
+        MINUS_WORDS = [
+            "bank statement","statement","account summary","summary",
+            "bank of","citibank","hsbc","bbva","santander","banamex","banorte",
+            "generated","printed","page","period","from","to",
+            "as of","as at","ending","beginning",
+            "febrero","enero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre",
+            "a:","de:","para:","cliente","titular","cuenta","sucursal"
+        ]
+        for i, fila in enumerate(matrix[:11]):
+            if (len(fila) == len(self.df.columns) ##Lógica que revisa si 
+            and all(isinstance(x,str) for x in fila)
+            and all (x!="" for x in fila)
+            and sum(not x.startswith("Unnamed") for x in fila) > len(fila) *0.5): 
+                dict_idx[i] = 0 ##Si se cumplen las condiciones, se guarda.
+        
+        if len(dict_idx)>=1:
+            for i in dict_idx:
+                fila = matrix[i]
+                score = 0
+                fila_norm =[x.strip().lower() for x in fila]
+                ##Puntajes para asignar y decidir column
+                score += sum(any(x in cell for x in PLUS_WORDS) for cell in fila_norm)
+                score -= sum(any(x in cell for x in MINUS_WORDS) for cell in fila_norm)
+                dict_idx[i] = score
+                # print(f"Fila: {i} - fila: {fila} - score: {score}")
+        best_i = max(dict_idx, key=dict_idx.get)
+        matrix = matrix[best_i:]
+        df = pd.DataFrame(matrix)
+        
+        # Asigna column names al df
+        headers = [str(x) for x in df.iloc[0]]
+        df = pd.DataFrame(df.iloc[1:].values, columns = headers)
+        
+        self.log.append(f"Firstrow corrected to {i}")
+        self.data_list = matrix
+        self.df = df
         return self
 
     def fix_dates(self):
@@ -92,12 +139,21 @@ class ReporteDf:
         self.numeric_columns = []
         self.non_numeric_columns = []
         
-        # for i, col in enumerate(self.df.select_dtypes(include="object").columns): ##object = strings and all
+        ##Convertimos columnas a número de ser posible
+        for i,col in enumerate(self.df.columns):
+            serie_converted = pd.to_numeric(self.df[col], errors="coerce")
+            porcentaje_numerico = serie_converted.notna().mean()
+            if porcentaje_numerico>0.95:
+                self.df[col] = serie_converted
+                self.log.append(f"number_change[{i}]-[{col}]")
+        
+        ##Los restantes, los tratamos de convertir
         for i, col in enumerate(self.df.columns): ##object = strings and all
             if self.df[col].dtype == "object":
-                serie_base = self.df[col]
-                serie_converted = pd.to_numeric(serie_base.str.replace(
-                r"[^\d\.-]", "", regex=True), errors="coerce")
+                serie_converted = pd.to_numeric(
+                self.df[col].str.replace(
+                r"[^\d\.-]", "", regex=True), errors="coerce"
+                )
                 number_percent = serie_converted.notna().mean()  #% de valores numbers.
                 if number_percent>=0.95 or "amount" in col.lower():
                     self.df[col] = serie_converted
@@ -115,8 +171,20 @@ class ReporteDf:
 
 def load_file(archivo_base):
     ##Lee un archivo, devuelve un df
-    if archivo_base.name.lower().endswith(".csv"):
-        archivo_leido = pd.read_csv(archivo_base, encoding="latin-1", header=0)
+    if archivo_base.name.lower().endswith(".csv"): ##Si es csv no usamos pandas, pues pandas me dió error muchas veces
+        archivo_leido = []
+        decodificador = "utf-8"
+        if isinstance(archivo_base,(str,Path)):
+            with open(archivo_base, newline='', encoding=decodificador) as f:
+                reader = csv.reader(f)
+                for fila in reader:
+                    archivo_leido.append(fila)
+        else:
+            contenido = io.StringIO(archivo_base.getvalue().decode(decodificador)) ##pasa de bytes a texto según chatgpt
+            reader = csv.reader(contenido)
+            for fila in reader:
+                archivo_leido.append(fila)
+        archivo_leido = pd.DataFrame(archivo_leido)
     else:
         archivo_leido = pd.DataFrame(leer_file(archivo_base)) ##Lo leemos con nuestro lector personalizado
     return archivo_leido

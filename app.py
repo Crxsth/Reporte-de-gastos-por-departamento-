@@ -1,5 +1,7 @@
 """2026.01.09. Este módulo inicializa streamlit y coordina todo"""
 import time
+global t0 
+t0 = time.time()
 import csv
 import os
 import pandas as pd
@@ -11,10 +13,17 @@ from datetime import datetime
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
 # import core
+tx= time.time()
 import excel_workspace #1
 import report_visual #2
 import conciliador #8
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
+t1 = time.time()
+timer_imports = t1-t0
+timer_imports_py = tx-t0
+# print(f"Tiempo solo imports: {timer_imports:.4}")
+# print(f"Tiempo solo imports no custom: {timer_imports_py:.4}")
+
 
 def save_exec_times_to_csv(csv_path="exec_time.csv"):
     ##Yes, timers by chatgpt as idc enough
@@ -172,6 +181,7 @@ def obtener_dataframe(): ##Function that selects a file to work with.
 
 
 def main():
+    tmain = time.time()
     ss = st.session_state
     start = time.perf_counter()
     ##Almacenaremos los tiempos de ejecución
@@ -215,7 +225,9 @@ def main():
         if st.button("Conciliate", width = "stretch"):
             ss.page="conciliate"
             ss.first_run = True
-    
+    tsidebar = time.time()
+    timer_sidebar = tsidebar-tmain
+    # print(f"Tiempo main to sidebar: {timer_sidebar}")
     
     if ss.page not in ss:
         page="menu"
@@ -233,14 +245,18 @@ def main():
     elif page=="conciliate": ##8
         st.title("Conciliar")
         conciliador.render_conciliate()
-    
-    
     else:
         st.write("JAJAJA NO LE SALIÓ")
     
     # st.write("ss")
     # st.write(ss)
     log_render_time(time.perf_counter() - start)
+    tend = time.time()
+    timer_end = tend-tmain
+    print(f"Tiempo main to end: {timer_end:.4}")
 
 if __name__ == "__main__":
     main()
+    t1 = time.time()
+    timer_final = t1-t0
+    print(f"Timer ejecutar main por completo: {timer_final}")

@@ -130,13 +130,13 @@ def render_conciliate():
     
     if DEV_MODE == True:## Lector de archivos
         if "df_base" not in ss:
-            ss.df_base = pd.read_csv(DEV_BASE)
+            ss.df_base = core.load_file(DEV_BASE)
+            # ss.df_base = pd.read_csv(DEV_BASE)
         if "df_banco" not in ss:
-            ss.df_banco = pd.read_csv(DEV_BANK)
-        
+            # ss.df_banco = pd.read_csv(DEV_BANK)
+            ss.df_banco = core.load_file(DEV_BANK)
         df_base = ss.df_base
         df_bank = ss.df_banco
-    
     else:
         with col_data_base:
             df_base, base_id = ui.obtener_dataframe(label="Database data", key="base")
@@ -154,8 +154,8 @@ def render_conciliate():
         ss.bank_id = None
     
     ##Creamos obj para normalizar datos
-    archivo_base = core.ReporteDf(df_base).fix_dates().fix_numbers()
-    archivo_bank = core.ReporteDf(df_bank).fix_dates().fix_numbers()
+    archivo_base = core.ReporteDf(df_base).fix_header().fix_dates().fix_numbers()
+    archivo_bank = core.ReporteDf(df_bank).fix_header().fix_dates().fix_numbers()
     df_base = archivo_base.df
     df_bank = archivo_bank.df
     
@@ -163,7 +163,6 @@ def render_conciliate():
     ##Si es la primera vez, coloca estos por default
     if ss.first_run == True: ##Esto pone por default 2 columnas, sino pues no
         try:
-            
             date_col = next(x for x in df_base.columns if "date" in x.lower()) ##Obtenemos la columna con la palabra 'date'
             ss["df1_col_0"] = next(c for c in df_base.columns if "date" in c.lower())
             ss["df2_col_0"] = next(c for c in df_bank.columns if "date" in c.lower())
@@ -177,19 +176,15 @@ def render_conciliate():
             
     ##Aquí se llama a las funciones que renderizan todo en advanced or not
     st.divider()
+    st.stop()
     if ss.advanced_settings:
         render_advanced_rules()
     else:
         render_simple_rules()    
-    
-    
-    
-
     st.button("Run", key="inicializador")
     
     ##Lógica de conciliación
     n = len(ss.rows)
-    
     df_copy = df_bank.copy()
     if not "bank_copies" in ss:##Almacena los df_copy de cada iteración per amount
         ss.bank_copies = []
@@ -200,7 +195,7 @@ def render_conciliate():
     base_cols = [ss[f"df1_col_{i}"] for i in ss.rows]
     bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
 
-    if 1>0:
+    if 1>3:
         result = core.conciliador(
             df_base=df_base,
             df_bank=df_bank,
@@ -211,7 +206,7 @@ def render_conciliate():
     bool_var = False
     if bool_var ==True:
         st.write(f"Ene we : {n}")
-        for row in ss.rows:
+        for row in ss.rows: 
             
             base_col = ss.get(f"df1_col_{row}")
             bank_col = ss.get(f"df2_col_{row}")

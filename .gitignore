@@ -4,6 +4,7 @@ __pycache__/
 
 # Generated files
 exec_time.csv
+Datos_test.csv
 
 # Backups / tests
 respaldo.patch
