@@ -68,6 +68,7 @@ class ReporteDf:
             "a:","de:","para:","cliente","titular","sucursal"
         ]
         for i, fila in enumerate(matrix[:11]):
+            print(fila)
             if (len(fila) == len(self.df.columns) ##Lógica que revisa si 
             and sum(not str(x).startswith("Unnamed") for x in fila) > len(fila) *0.5): 
                 dict_idx[i] = 0 ##Si se cumplen las condiciones, se guarda.
