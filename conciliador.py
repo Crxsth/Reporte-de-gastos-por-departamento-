@@ -6,7 +6,7 @@ import other_ui as ui
 from pathlib import Path
 import pandas as pd
 
-DEV_MODE = True  # ⬅️ cambia a False cuando ya no lo quieras
+DEV_MODE = False  # ⬅️ cambia a False cuando ya no lo quieras
 
 DEV_PATH = Path(r"C:\Users\criis\Documents\Coding\Conciliation")
 DEV_BASE = DEV_PATH / "Datos1.csv"

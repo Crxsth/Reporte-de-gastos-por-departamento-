@@ -173,7 +173,22 @@ class ReporteDf:
 
 def load_file(archivo_base):
     ##Lee un archivo, devuelve un df
-    if archivo_base.name.lower().endswith(".csv"): ##Si es csv no usamos pandas, pues pandas me dió error muchas veces
+    if isinstance(archivo_base, Path):
+        nombre = str(archivo_base.name)
+    elif isinstance(archivo_base, str):
+        nombre = archivo_base
+    else:
+        nombre = str(archivo_base.name)
+    
+    if nombre.lower().endswith(".csv"):
+        escsv = True
+    elif (nombre.lower().endswith(".xlsx")) or (nombre.lower().endswith(".xlsm")):
+        escsv = False
+    
+   
+    ##Esto normalmente recibe Bytes, pero puede recibir string or Path
+    # if archivo_base.name.lower().endswith(".csv"): ##Si es csv no usamos pandas, pues pandas me dió error muchas veces
+    if escsv==True:
         archivo_leido = []
         decodificador = "utf-8"
         if isinstance(archivo_base,(str,Path)):
@@ -181,14 +196,18 @@ def load_file(archivo_base):
                 reader = csv.reader(f)
                 for fila in reader:
                     archivo_leido.append(fila)
-        else:
+        else:##This exist when the program receives not a string or Path to read a file, but an object in memory.
             contenido = io.StringIO(archivo_base.getvalue().decode(decodificador)) ##pasa de bytes a texto según chatgpt
             reader = csv.reader(contenido)
             for fila in reader:
                 archivo_leido.append(fila)
         archivo_leido = pd.DataFrame(archivo_leido)
     else:
-        archivo_leido = pd.DataFrame(leer_file(archivo_base)) ##Lo leemos con nuestro lector personalizado
+        try:
+            archivo_leido = pd.DataFrame(leer_file(archivo_base)) ##Lo leemos con nuestro lector personalizado
+        except:
+            archivo_leido = pd.read_excel(archivo_base)
+    
     return archivo_leido
     
     
