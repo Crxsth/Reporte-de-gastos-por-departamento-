@@ -2,9 +2,9 @@ import streamlit as st
 import sys
 import core
 import other_ui as ui
-
 from pathlib import Path
 import pandas as pd
+import time
 
 DEV_MODE = False  # ⬅️ cambia a False cuando ya no lo quieras
 
@@ -32,13 +32,20 @@ def delete_row():
 
 
 def select_df1(df, idx):
+    """
+    Crea selectboxes para elegir columna del DataFrame base
+    u\200B es un label invisible para evitar warnings
+    """
     opciones = list(df.columns)
-    return st.selectbox("", opciones, key=f"df1_col_{idx}", label_visibility="collapsed")
+    # return st.selectbox("\u200B", opciones, key=f"df1_col_{idx}", label_visibility="collapsed")
+    return st.selectbox(f"df1_col_{idx}", opciones, key=f"df1_col_{idx}")
 
 
 def select_df2(df, idx):
+    ##Crea selectbox para elegir columna de DFBanco #\200B = string invisible
     opciones = list(df.columns)
-    return st.selectbox("", opciones, key=f"df2_col_{idx}", label_visibility="collapsed")
+    # return st.selectbox("\u200B", opciones, key=f"df2_col_{idx}", label_visibility="collapsed")
+    return st.selectbox(f"df2_col_{idx}", opciones, key=f"df2_col_{idx}")
 
 
 def extra_match(idx):
@@ -116,6 +123,10 @@ def render_simple_rules():
 
 def render_conciliate():
     ss = st.session_state
+    print()
+    t0 = time.time()
+    hora = time.strftime("%H:%M:%S", time.localtime(t0))
+    print(f"Rerun starts here: {hora}")
     
     ##File uploader
     col_data_base, col_data_bank = st.columns(2)
@@ -127,25 +138,24 @@ def render_conciliate():
     if "advanced_settings" not in ss:
         ss.advanced_settings = False
     st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
-    
-    if DEV_MODE == True:## Lector de archivos
-        if "df_base" not in ss:
-            ss.df_base = core.load_file(DEV_BASE)
-            # ss.df_base = pd.read_csv(DEV_BASE)
-        if "df_banco" not in ss:
-            # ss.df_banco = pd.read_csv(DEV_BANK)
-            ss.df_banco = core.load_file(DEV_BANK)
-        df_base = ss.df_base
-        df_bank = ss.df_banco
+    st.write(ss)
+    ## Lector de archivos
+    if DEV_MODE == True:
+        if "base" not in ss:
+            ss.base = core.load_file(DEV_BASE)
+        if "banco" not in ss:
+            ss.banco = core.load_file(DEV_BANK)
+        df_base_raw = ss.base 
+        df_bank_raw = ss.banco
     else:
         with col_data_base:
-            df_base, base_id = ui.obtener_dataframe(label="Database data", key="base")
+            df_base_raw, base_id = ui.obtener_dataframe(label="Database data", key="base")
         with col_data_bank:
-            df_bank, bank_id = ui.obtener_dataframe(label="Bank data",key="banco")
-            if df_bank is None: st.stop()
-    st.write(ss)
+            df_bank_raw, bank_id = ui.obtener_dataframe(label="Bank data",key="banco")
+            if df_bank_raw is None: st.stop()
     
-    if df_base is None or df_bank is None:
+    
+    if df_base_raw is None or df_bank_raw is None:
         st.stop()
     
     if "base_id" not in ss: ##Lo inicializamos si no existía
@@ -154,10 +164,19 @@ def render_conciliate():
         ss.bank_id = None
     
     ##Creamos obj para normalizar datos
-    archivo_base = core.ReporteDf(df_base).fix_header().fix_dates().fix_numbers()
-    archivo_bank = core.ReporteDf(df_bank).fix_header().fix_dates().fix_numbers()
+    # print(df_base_raw)
+    archivo_base = core.ReporteDf(df_base_raw).fix_header().fix_dates().fix_numbers()
+    df_base = archivo_base.df    
+    archivo_bank = core.ReporteDf(df_bank_raw).fix_header().fix_dates().fix_numbers()
     df_base = archivo_base.df
     df_bank = archivo_bank.df
+    ss.df_base = df_base
+    ss.df_bank = df_bank
+    
+    
+    # print("Banco & base:")
+    # print(df_bank)
+    # print(df_base)
     
     
     ##Si es la primera vez, coloca estos por default
@@ -176,7 +195,7 @@ def render_conciliate():
             
     ##Aquí se llama a las funciones que renderizan todo en advanced or not
     st.divider()
-    st.stop()
+    # st.stop()
     if ss.advanced_settings:
         render_advanced_rules()
     else:
