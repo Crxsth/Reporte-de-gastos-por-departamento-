@@ -239,24 +239,24 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     df_result = df_base.copy() ##df_result almacenará todos los valores que df_var haya creado
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
-    
+    objetivo = ""
     for idx_bank in df_bank.index: ##por cada transacción
         df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
         
         count = 0
         for idx_base in df_var.index: ##por cada dato del ERP
-            print(df_var.loc[idx_base,"Amount"])
+            # print(df_var.loc[idx_base,"Amount"])
             ##Iteramos las listas con los valores de los componentes interactivos
             for i, dato in enumerate(bank_cols):
                 banco_matching_rule_n = bank_cols[i] ##Nombres de las columnas de las listas
                 base_matching_rule_n = base_cols[i]
-                
                 valor_bank = df_bank.loc[idx_bank, banco_matching_rule_n] ##Valor del índice & list.value
                 valor_base = df_base.loc[idx_base, base_matching_rule_n] 
-            
-                if valor_bank == valor_base:
-                    # print(f"Found: {valor_bank} == {valor_base}")
-                    df_var.loc[idx_base, f"{dato} match"] = 1
+                
+                if valor_bank == valor_base: ##Compara si hacen match nuestros valores
+                    df_var.loc[idx_base, f"{dato} match"] = 1 ##Punto
+                    objetivo = f"{banco_matching_rule_n}:{base_matching_rule_n} =={valor_bank}" ##String con "col1:col2 = valor_buscado"
+                    df_var.loc[idx_base, "valor buscado"] = objetivo 
                 else:
                     count = count +1
             match_cols = [f"{dato} match" for dato in base_cols] ##Crea una lista: ["Date match","Amount match"]
@@ -266,10 +266,12 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         df_var = df_var[df_var["match_score"]!=0] ##Es un drop para filtrar solo los que tengan valor
         df_var["bank_idx"] = df_var.index ##Guarda el índice, para cuestiones futuras
         chunks.append(df_var.copy())
+        df_var.to_csv("df_var.csv")
         
-        print(df_var)
+        return
+        # print(df_var)
         # break
-    
+    # return
     df_result = pd.concat(chunks, ignore_index=True)
     # print(df_result)
     # print(df_var)
@@ -281,7 +283,8 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     print(f"Contador: {count}")
     # print("Valor buscado:")
     # print(df_bank.loc[idx_bank])
-    df_var.to_csv("Datos_test.csv")
+    df_var.to_csv("df_vars.csv")
+    # df_result.to_csv("df_result.csv")
     exit() ##Detenmos pq sí we
     
     # for i, dato in enumerate(bank_cols): ##por cada matching_rules
