@@ -234,16 +234,20 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     df_bank["total matches"] = 0
     df_base["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
     df_base["valor buscado"] = ""
+    df_base["original_idx"] = 0
     df_base["bank_idx"] = 0
     n = len(base_cols)
     df_result = df_base.copy() ##df_result almacenará todos los valores que df_var haya creado
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
-    objetivo = ""
+    objetivo = []
     for idx_bank in df_bank.index: ##por cada transacción
         df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
-        
+
         count = 0
+        ##Contiene un string: "objetivo:valor", example: "Date:123, Amount:456"
+        objetivo = ", ".join([f"{col}:{df_bank.loc[idx_bank, col]}" for col in bank_cols]) 
+        
         for idx_base in df_var.index: ##por cada dato del ERP
             # print(df_var.loc[idx_base,"Amount"])
             ##Iteramos las listas con los valores de los componentes interactivos
@@ -255,37 +259,39 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                 
                 if valor_bank == valor_base: ##Compara si hacen match nuestros valores
                     df_var.loc[idx_base, f"{dato} match"] = 1 ##Punto
-                    objetivo = f"{banco_matching_rule_n}:{base_matching_rule_n} =={valor_bank}" ##String con "col1:col2 = valor_buscado"
-                    df_var.loc[idx_base, "valor buscado"] = objetivo 
-                else:
-                    count = count +1
+                    df_var.loc[idx_base, "valor buscado"] = objetivo
+                # else:
+                    # count = count +1
             match_cols = [f"{dato} match" for dato in base_cols] ##Crea una lista: ["Date match","Amount match"]
+        count = count + 1
         
         ##df_var almacena aquellos con >0 matches
         df_var["match_score"] = df_var[match_cols].sum(axis=1) ##Suma de los datos
         df_var = df_var[df_var["match_score"]!=0] ##Es un drop para filtrar solo los que tengan valor
-        df_var["bank_idx"] = df_var.index ##Guarda el índice, para cuestiones futuras
-        chunks.append(df_var.copy())
-        df_var.to_csv("df_var.csv")
-        
-        return
-        # print(df_var)
-        # break
-    # return
-    df_result = pd.concat(chunks, ignore_index=True)
-    # print(df_result)
-    # print(df_var)
-    # df_var = df_var.where(df_var["match_score"] == 0)
-    # df_var = df_var["match_score"]!=0
+        df_var["original_idx"] = df_var.index ##Guarda el índice original para no perderlo después, en caso de necesitar búsquedas
+        df_var["bank_idx"] = idx_bank ##Guarda el índice de la transacción bancaria con la que lo comparamos
+        chunks.append(df_var.copy()) ##2 tabs de identación. chunks almacenará cada uno
+    
+    df_result = pd.concat(chunks, ignore_index=True) ##Contiene todos los 'df_var', sus puntos y datos
+    df_max = df_result[
+        df_result["Amount match"] == 
+        df_result.groupby("bank_idx")["Amount match"].transform("max")
+        ]
+    
+    print("creamos un csv del banco, el idx no me convence")
+    df_bank.to_csv("df_bank_py.csv")
+    
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
-    print(f"Contador: {count}")
-    # print("Valor buscado:")
-    # print(df_bank.loc[idx_bank])
-    df_var.to_csv("df_vars.csv")
-    # df_result.to_csv("df_result.csv")
-    exit() ##Detenmos pq sí we
+    print(f"Contador de matches: {count}")
+
+    df_result.to_csv("df_result.csv")
+    print("Se ha hecho df_result.csv, contiene todos los puntajes")
+    df_max.to_csv("df_max.csv")
+    print("Se ha creado df_max.csv, contiene solo los máximos")
+    
+    return ##Detenmos pq sí we
     
     # for i, dato in enumerate(bank_cols): ##por cada matching_rules
             # banco_matching_rule_n = bank_cols[i] 
