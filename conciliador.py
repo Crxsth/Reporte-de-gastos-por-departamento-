@@ -139,14 +139,17 @@ def render_conciliate():
         ss.advanced_settings = False
     st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
     st.write(ss)
+    
     ## Lector de archivos
     if DEV_MODE == True:
-        if "base" not in ss:
-            ss.base = core.load_file(DEV_BASE)
-        if "banco" not in ss:
-            ss.banco = core.load_file(DEV_BANK)
-        df_base_raw = ss.base 
-        df_bank_raw = ss.banco
+        # if "base" not in ss:
+            # ss.base = core.load_file(DEV_BASE)
+        df_base_raw = core.load_file(DEV_BASE)
+        # if "banco" not in ss:
+            # ss.banco = core.load_file(DEV_BANK)
+        df_bank_raw = core.load_file(DEV_BANK)
+        # df_base_raw = ss.base 
+        # df_bank_raw = ss.banco
     else:
         with col_data_base:
             df_base_raw, base_id = ui.obtener_dataframe(label="Database data", key="base")
@@ -200,66 +203,64 @@ def render_conciliate():
         render_advanced_rules()
     else:
         render_simple_rules()    
-    st.button("Run", key="inicializador")
     
-    ##Lógica de conciliación
-    n = len(ss.rows)
-    df_copy = df_bank.copy()
-    if not "bank_copies" in ss:##Almacena los df_copy de cada iteración per amount
-        ss.bank_copies = []
-    ss.bank_copies.clear()
+    
+    ##Esto llama al conciliador
+    # Inicializar estado
+    if "conciliado" not in ss:
+        ss.conciliado = False
+    if "df_max_result" not in ss:
+        ss.df_max_result = None
+    if "df_result_full" not in ss:
+        ss.df_result_full = None
     st.divider()
-    
-    ##No quitar. Estos valores son obtenidos en los selectboxes y se almacenan en el 'ss'
-    base_cols = [ss[f"df1_col_{i}"] for i in ss.rows]
-    bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
-
-    if 1>3:
-        result = core.conciliador(
+    st.write("Conciliador aquí:")
+    if st.button("Run", key="inicializador"):
+        ss.conciliado = True
+        ##Columnas a comparar 
+        base_cols = [ss[f"df1_col_{i}"] for i in ss.rows]
+        bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
+        ##Llamada al conciliador
+        df_result, df_max = core.conciliador(
             df_base=df_base,
             df_bank=df_bank,
             base_cols=base_cols,
             bank_cols=bank_cols
             )
-    
-    bool_var = False
-    if bool_var ==True:
-        st.write(f"Ene we : {n}")
-        for row in ss.rows: 
-            
-            base_col = ss.get(f"df1_col_{row}")
-            bank_col = ss.get(f"df2_col_{row}")
-            st.write(f"{base_col} - {bank_col} & {row}")
-            
-            # st.write(f"{archivo_base.df[base_col]}")
-            st.write("Empezamos bucle")
-            
-            for i in range(0, len(df_base[base_col])):
-                df_var = df_copy.copy()
-                df_var["base_index"] = i ##una serie con el número {i} para no perdernos
-                valor = df_base.loc[i, base_col]
-                # print(f"valor buscado: {valor}")
-                st.write(f"valor buscado: {valor}")
-                ss.bank_copies.append(df_var)
-                count = 0
-                for j in range(0, len(df_var[bank_col])):
-                    valor_posible = df_var.loc[j, bank_col]
-                    if valor == valor_posible:
-                        df_var.loc[j,"prob"] = df_var.loc[j, "prob"] + 1
-                        st.write(f"Matches: {valor_posible}")
-                for i, dato in enumerate(df_var["prob"]):
-                    if dato>0:
-                        print(f"{i} - {dato}")
-                if count ==0:
-                    print("NADA WE")
-                
-                break
-                # st.write(valor)
-                # break
-            
-            
-            break
+        ss.df_result = df_result
+        ss.df_max = df_max
+        df_result = df_base.join(
+            df_max.set_index("original_idx")[["match_score"]],
+            how="left"
+        )
+        n = len(base_cols)
+        df_result["confianza"] = (df_result["match_score"] / n)*100
         
+    ##Hacemos un merge de banco > ERP
+    
+    if ss.conciliado==True and ss.df_max is not None:
+        st.dataframe(ss.df_max)
+        
+        st.success("Se han hecho conciliaciones, elija los archivos que desee descargar")
+        st.info(
+        """Para hacer la conciliación se revisan y comparan las transacciones basado en las columnas seleccionadas.
+        Luego se eligen las transacciones con puntajes más altos.
+        """)
+        
+        result1, result2, result3 = st.columns(3)
+        with result1:
+            msg1 = st.empty()
+            msg2= st.empty()
+            if st.button("Descargar archivo 'Possible_matches'",key="download_df_result", width="stretch"):
+                with result3:
+                    msg1.success("Descargando...")
+            if st.button("Descargar archivo 'results'", key="download_df_max", width="stretch"):
+                with result3:
+                    msg2.success("Descargando...")
+        with result2:
+            st.write("Este archivo contiene todos los puntajes de las operaciones realizadas")
+            st.write("Este archivo contiene solo las tablas con los puntajes más altos")
+        # with result3:
 
 if __name__ == "__main__":
     render_conciliate()

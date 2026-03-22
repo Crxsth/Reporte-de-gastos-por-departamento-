@@ -227,7 +227,8 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     """
     ##convierte los rows en una lista
     timer1 = time.time()
-    
+    df_base = df_base.copy()
+    df_bank = df_bank.copy()
     df_base["match_score"] = 0
     for col in base_cols: ##Crea columnas para añadir puntos del match
         df_base[f"{col} match"] = 0
@@ -278,24 +279,21 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         df_result.groupby("bank_idx")["Amount match"].transform("max")
         ]
     
-    print("creamos un csv del banco, el idx no me convence")
-    df_bank.to_csv("df_bank_py.csv")
+    # print("creamos un csv del banco, el idx no me convence")
+    # df_bank.to_csv("df_bank_py.csv")
+    # print(df_base)
+    # print(df_max)
     
     timer2 = time.time()
     tiempo = timer2-timer1
-    print(f"Tiempo de ejecución: {tiempo:.4f}")
-    print(f"Contador de matches: {count}")
+    # print(f"Tiempo de ejecución: {tiempo:.4f}")
+    # print(f"Contador de matches: {count}")
 
-    df_result.to_csv("df_result.csv")
-    print("Se ha hecho df_result.csv, contiene todos los puntajes")
-    df_max.to_csv("df_max.csv")
-    print("Se ha creado df_max.csv, contiene solo los máximos")
-    
-    return ##Detenmos pq sí we
-    
-    # for i, dato in enumerate(bank_cols): ##por cada matching_rules
-            # banco_matching_rule_n = bank_cols[i] 
-            # base_matching_rule_n = base_cols[i]
+    # df_result.to_csv("df_result.csv")
+    # print("Se ha hecho df_result.csv, contiene todos los puntajes")
+    # df_max.to_csv("df_max.csv")
+    # print("Se ha creado df_max.csv, contiene solo los máximos")
+    return df_result, df_max
     
     
     # df_bank.to_csv("Datos del banco jan 31, 2026.csv")
