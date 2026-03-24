@@ -229,12 +229,12 @@ def render_conciliate():
             )
         ss.df_result = df_result
         ss.df_max = df_max
-        df_result = df_base.join(
+        df_matches = df_base.join(
             df_max.set_index("original_idx")[["match_score"]],
             how="left"
         )
         n = len(base_cols)
-        df_result["confianza"] = (df_result["match_score"] / n)*100
+        df_matches["confianza"] = (df_matches["match_score"] / n)*100
         
     ##Hacemos un merge de banco > ERP
     
@@ -247,20 +247,17 @@ def render_conciliate():
         Luego se eligen las transacciones con puntajes más altos.
         """)
         
-        result1, result2, result3 = st.columns(3)
+        # result1, result2, result3 = st.columns(3)
+        result1, result2 = st.columns(2)
         with result1:
             msg1 = st.empty()
-            msg2= st.empty()
-            if st.button("Descargar archivo 'Possible_matches'",key="download_df_result", width="stretch"):
-                with result3:
-                    msg1.success("Descargando...")
-            if st.button("Descargar archivo 'results'", key="download_df_max", width="stretch"):
-                with result3:
-                    msg2.success("Descargando...")
+            if st.button("Descargar archivo 'Possible_matches'", key="download_df_result",width="stretch"):
+                msg1.success("Descargando...")
         with result2:
-            st.write("Este archivo contiene todos los puntajes de las operaciones realizadas")
-            st.write("Este archivo contiene solo las tablas con los puntajes más altos")
-        # with result3:
+            msg2 = st.empty()
+            if st.button("Descargar 'Archivo con matches'", key= "download_df_matches", width="stretch"):
+                msg2.success("Descargando...")
+        
 
 if __name__ == "__main__":
     render_conciliate()
