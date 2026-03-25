@@ -227,14 +227,21 @@ def render_conciliate():
             base_cols=base_cols,
             bank_cols=bank_cols
             )
-        ss.df_result = df_result
-        ss.df_max = df_max
+        
         df_matches = df_base.join(
             df_max.set_index("original_idx")[["match_score"]],
             how="left"
         )
         n = len(base_cols)
         df_matches["confianza"] = (df_matches["match_score"] / n)*100
+        
+        matched_idx = df_max["original_idx"].dropna().unique()
+        df_unmatched = df_base.loc[~df_base.index.isin(matched_idx)].copy() ##Contiene los que sobran, en chatgpt confío 
+        
+        ss.df_result = df_result ##all match >0
+        ss.df_max = df_max ##max (match)
+        ss.df_matches = df_matches
+        ss.df_unmatched = df_unmatched
         
     ##Hacemos un merge de banco > ERP
     
@@ -246,18 +253,53 @@ def render_conciliate():
         """Para hacer la conciliación se revisan y comparan las transacciones basado en las columnas seleccionadas.
         Luego se eligen las transacciones con puntajes más altos.
         """)
+        df_result = ss.df_result
+        df_matches = ss.df_matches
+        df_unmatched = ss.df_unmatched
+        df_result_bytes = df_result.to_csv(index=False).encode("utf-8")
+        df_matches_bytes = df_matches.to_csv(index=False).encode("utf-8")
+        df_unmatched_bytes = df_unmatched.to_csv(index=False).encode("utf-8")
         
-        # result1, result2, result3 = st.columns(3)
-        result1, result2 = st.columns(2)
+        st.divider()
+        result1, result2, result3 = st.columns(3)
+        # result1, result2 = st.columns(2)
         with result1:
-            msg1 = st.empty()
-            if st.button("Descargar archivo 'Possible_matches'", key="download_df_result",width="stretch"):
-                msg1.success("Descargando...")
+            clicked = st.download_button(
+                label= "Descargar archivo 'Possible_matches'",
+                data= df_result_bytes, 
+                file_name = "Possible_matches.csv",
+                mime= "text/csv",
+                key="download_df_result",
+                help= "Archivo que contiene todas las posibles coincidencias",
+                width="stretch"
+            )
+            st.info("Este archivo contiene las posibles coincidencias entre el ERP y el banco.")
+            if clicked:
+                st.success("Descargando...")
         with result2:
-            msg2 = st.empty()
-            if st.button("Descargar 'Archivo con matches'", key= "download_df_matches", width="stretch"):
-                msg2.success("Descargando...")
-        
+            clicked2 = st.download_button(
+                label = "Descargar 'Archivo base con matches'",
+                data = df_matches_bytes,
+                file_name = "Matched file.csv",
+                key="download_df_matches",
+                help="Archivo base con el añadido del match más probable",
+                width="stretch"
+            )
+            st.info("Este archivo contiene su archivo 'base' y tendrá columna con valores a la derecha del mismo")
+            if clicked2:
+                st.success("Descargando...")
+        with result3:
+            clicked3 = st.download_button(
+                label = "Descargar 'Unmatched' data",
+                data = df_unmatched_bytes,
+                file_name = "Unmatched data",
+                mime= "text/csv",
+                key = "download_df_unmatched",
+                help = "Archivo que contiene datos que no tuvieron match",
+                width = "stretch"
+            )
+            if clicked3:
+                st.success("Descargando")
 
 if __name__ == "__main__":
     render_conciliate()
