@@ -75,18 +75,6 @@ def render_advanced_rules():
                 extra_match(idx)
             with col3:
                 select_df2(df_bank, idx)
-    
-    
-    ##Botones añadir / delete
-    space1, space2 = st.columns(2)
-    with space1:
-        if st.button("Agregar fila"):
-            add_row()
-            st.rerun()
-    with space2:
-        if st.button("Eliminar fila"):
-            delete_row()
-            st.rerun()
 
 
 def render_simple_rules():
@@ -177,11 +165,6 @@ def render_conciliate():
     ss.df_bank = df_bank
     
     
-    # print("Banco & base:")
-    # print(df_bank)
-    # print(df_base)
-    
-    
     ##Si es la primera vez, coloca estos por default
     if ss.first_run == True: ##Esto pone por default 2 columnas, sino pues no
         try:
@@ -204,6 +187,17 @@ def render_conciliate():
     else:
         render_simple_rules()    
     
+    ##Botones añadir / eliminar componentes interactivos
+    col_add, col_del = st.columns(2)
+    ancho = "stretch"
+    with col_add:
+        if st.button("Agregar fila", key="add_rule_row", width=ancho):
+            add_row()
+            st.rerun()
+    with col_del:
+        if st.button("Eliminar fila", key="delete_rule_row", width=ancho):
+            delete_row()
+            st.rerun()
     
     ##Esto llama al conciliador
     # Inicializar estado

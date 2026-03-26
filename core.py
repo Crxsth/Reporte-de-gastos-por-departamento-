@@ -294,38 +294,3 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     # df_max.to_csv("df_max.csv")
     # print("Se ha creado df_max.csv, contiene solo los máximos")
     return df_result, df_max
-    
-    
-    # df_bank.to_csv("Datos del banco jan 31, 2026.csv")
-    if 1>2:
-        for row in ss.rows:
-            
-            base_col = ss.get(f"df1_col_{row}")
-            bank_col = ss.get(f"df2_col_{row}")
-            st.write(f"{base_col} - {bank_col} & {row}")
-            
-            # st.write(f"{archivo_base.df[base_col]}")
-            st.write("Empezamos bucle")
-            
-            for i in range(0, len(df_base[base_col])):
-                df_var = df_copy.copy()
-                df_var["base_index"] = i ##una serie con el número {i} para no perdernos
-                valor = df_base.loc[i, base_col]
-                # print(f"valor buscado: {valor}")
-                st.write(f"valor buscado: {valor}")
-                ss.bank_copies.append(df_var)
-                count = 0
-                for j in range(0, len(df_var[bank_col])):
-                    valor_posible = df_var.loc[j, bank_col]
-                    if valor == valor_posible:
-                        df_var.loc[j,"prob"] = df_var.loc[j, "prob"] + 1
-                        st.write(f"Matches: {valor_posible}")
-                for i, dato in enumerate(df_var["prob"]):
-                    if dato>0:
-                        print(f"{i} - {dato}")
-                if count ==0:
-                    print("NADA WE")
-                
-                break
-                st.write(valor)
-            break
