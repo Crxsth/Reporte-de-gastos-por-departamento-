@@ -85,8 +85,9 @@ class ReporteDf:
                 score -= sum(any(x in cell for x in MINUS_WORDS) for cell in fila_norm)
                 score -= sum(cell == "" for cell in fila_norm)
                 dict_idx[i] = score
-                # print(f"Fila: {i} - fila: {fila} - score: {score}")
+                print(f"{i}: {score}")
         best_i = max(dict_idx, key=dict_idx.get)
+        print(f"Mejor: {best_i}:: {matrix[best_i]}")
         matrix = matrix[best_i:]
         df = pd.DataFrame(matrix)
         

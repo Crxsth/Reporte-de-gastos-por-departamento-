@@ -37,15 +37,15 @@ def select_df1(df, idx):
     u\200B es un label invisible para evitar warnings
     """
     opciones = list(df.columns)
-    # return st.selectbox("\u200B", opciones, key=f"df1_col_{idx}", label_visibility="collapsed")
-    return st.selectbox(f"df1_col_{idx}", opciones, key=f"df1_col_{idx}")
+    return st.selectbox("\u200B", opciones, key=f"df1_col_{idx}", label_visibility="collapsed")
+    # return st.selectbox(f"df1_col_{idx}", opciones, key=f"df1_col_{idx}")
 
 
 def select_df2(df, idx):
     ##Crea selectbox para elegir columna de DFBanco #\200B = string invisible
     opciones = list(df.columns)
-    # return st.selectbox("\u200B", opciones, key=f"df2_col_{idx}", label_visibility="collapsed")
-    return st.selectbox(f"df2_col_{idx}", opciones, key=f"df2_col_{idx}")
+    return st.selectbox("\u200B", opciones, key=f"df2_col_{idx}", label_visibility="collapsed")
+    # return st.selectbox(f"df2_col_{idx}", opciones, key=f"df2_col_{idx}")
 
 
 def extra_match(idx):
@@ -57,7 +57,7 @@ def render_advanced_rules():
     ##Const
     ss = st.session_state
     df_base = ss.get("df_base")
-    df_bank = ss.get("df_banco")
+    df_bank = ss.get("df_bank")
     ##Titles
     h1, h2, h3 = st.columns(3)
     h1.markdown("**Datos Base**")
@@ -81,7 +81,8 @@ def render_simple_rules():
     ##Const
     ss = st.session_state
     df_base = ss.get("df_base")
-    df_bank = ss.get("df_banco")
+    df_bank = ss.get("df_bank")
+    st.write(f"Columnas del banco: {df_bank}")
     
     ##3 buttons
     title1, title2, title3 = st.columns(3)
