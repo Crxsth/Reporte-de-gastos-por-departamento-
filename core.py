@@ -287,7 +287,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     timer2 = time.time()
     tiempo = timer2-timer1
-    # print(f"Tiempo de ejecución: {tiempo:.4f}")
+    print(f"Tiempo de ejecución: {tiempo:.4f}")
     # print(f"Contador de matches: {count}")
 
     # df_result.to_csv("df_result.csv")

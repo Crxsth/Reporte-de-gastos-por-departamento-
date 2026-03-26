@@ -209,18 +209,19 @@ def render_conciliate():
     if "df_result_full" not in ss:
         ss.df_result_full = None
     st.divider()
-    st.write("Conciliador aquí:")
-    if st.button("Run", key="inicializador"):
+    if st.button("Run", key="inicializador", width=200):
+        
         ss.conciliado = True
         ##Columnas a comparar 
         base_cols = [ss[f"df1_col_{i}"] for i in ss.rows]
         bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
         ##Llamada al conciliador
-        df_result, df_max = core.conciliador(
-            df_base=df_base,
-            df_bank=df_bank,
-            base_cols=base_cols,
-            bank_cols=bank_cols
+        with st.spinner("Conciliando datos... "):
+            df_result, df_max = core.conciliador(
+                df_base=df_base,
+                df_bank=df_bank,
+                base_cols=base_cols,
+                bank_cols=bank_cols
             )
         
         df_matches = df_base.join(
@@ -293,6 +294,7 @@ def render_conciliate():
                 help = "Archivo que contiene datos que no tuvieron match",
                 width = "stretch"
             )
+            st.info("Este archivo contiene los datos que no se pudieron conciliar ni recibieron puntajes.")
             if clicked3:
                 st.success("Descargando")
 
