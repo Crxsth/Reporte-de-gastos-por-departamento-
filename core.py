@@ -85,9 +85,9 @@ class ReporteDf:
                 score -= sum(any(x in cell for x in MINUS_WORDS) for cell in fila_norm)
                 score -= sum(cell == "" for cell in fila_norm)
                 dict_idx[i] = score
-                print(f"{i}: {score}")
+                # print(f"{i}: {score}")
         best_i = max(dict_idx, key=dict_idx.get)
-        print(f"Mejor: {best_i}:: {matrix[best_i]}")
+        # print(f"Mejor: {best_i}:: {matrix[best_i]}")
         matrix = matrix[best_i:]
         df = pd.DataFrame(matrix)
         
@@ -243,7 +243,135 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
     objetivo = []
+    
+    col_var = 0 ##int que nos dice la columna con la que testeamos
+    base_dict = (
+        df_base.groupby(base_cols[col_var]).groups)
+    bank_dict = (
+        df_bank.groupby(bank_cols[col_var]).groups)
+    matches_dict = {}
+    i = 0
+    # CHATGPT:
+    # input:
+    # for key in bank_dict:
+        # base_idx = base_dict.get(key,[]) ##Si key existe en base_dict, devuelve índices
+        # bank_idx = bank_dict[key]
+        # if len(base_idx)>0:
+            # matches_dict[key] = {
+                # "bank":list(bank_idx),
+                # "base":list(base_idx
+            # }
+    # Mine:
+    print(f"Test col: >{bank_cols[col_var]}<")
+    for key in bank_dict:
+        bank_idx = bank_dict[key]
+        if key in base_dict:
+            base_idx = base_dict[key]
+            i = i +1
+            matches_dict[key] = {
+                "bank":list(bank_idx),
+                "base":list(base_idx)
+            }
+            print(f">{matches_dict[key]}<")
+            if i>10:
+                break
+    
+    
+    print("")
+    ##Convierte diccionario a DF con dos columnas: "bank","base" con su respectiva data
+    df_matches = pd.DataFrame.from_dict(matches_dict, orient="index").reset_index()
+    df_matches = df_matches.rename(columns={"index":"match_key"})
+    
+    ##Guardamos las filas que formarán la tabla puente
+    
+    
+    exit()
+    
+    
+    # print(df)
+    bridge = (
+        df_matches.reset_index(names="match_key")
+        .apply(
+            lambda row:pd.DataFrame({
+                "match_key": row["match_key"],
+                "bank_idx": row["bank"],
+                "base_idx": [row["base"]] * len(row["bank"])
+            }),
+            axis=1
+        )
+    )
+    bridge = pd.concat(bridge.to_list(), ignore_index=True)
+    bridge = bridge.explode("base_idx")
+    result = (
+        bridge.merge(
+            df_bank.reset_index(names="bank_idx"),
+            on="bank_idx",
+            how="left"
+        )
+        .merge(
+            df_base.reset_index(names="base_idx"),
+            on="base_idx",
+            how="left",
+            suffixes=("_bank","_base")
+        )
+    )
+    for col in result.columns:
+        print(col)
+    
+    
+    if 1>2:
+        rows = []
+        print("Here:")
+        for match_value, match_info in matches_dict.items():
+            # print(f"{match_value} , {match_info}")
+            bank_idx = match_info.get("bank", [])
+            base_idx = match_info.get("base", [])
+            # print(f"Bank: {bank_idx}, base: {base_idx}")
+
+            
+            
+            if not bank_idx or not base_idx:
+                continue
+            for idx in bank_idx:
+                for idx2 in base_idx:
+                    base_row = df_base.loc[idx2].to_dict()
+                row_var = {
+                    "bank_idx": bank_idx,
+                    "bank_monto": match_value,
+                    "base_idx":base_idx
+                }   
+                row_var.update(base_row)
+                rows.append(row_var)
+        
+    
+   
+    # output:
+    # {
+        # 1000:{
+            # "bank":[1,5,10],
+            # "base":[2,8]
+        # }
+        # 2500:{
+            # "bank":[3],
+            # "base":[7,9]
+        # }
+    # }
+    
+        # print(f"Buscado: {base_cols[1]}")
+        # print(f">{key}<>{base_idx}<")
+        # if i>10:
+            # break
+        # bank_idx = bank_dict[key]
+    
+    # for key in base_dict:
+        # item = base_dict[key]
+        # if key in bank_dict:
+        # print(f"{key} - {item}")
+    
+    bool_original = False
     for idx_bank in df_bank.index: ##por cada transacción
+        if bool_original ==False:
+            break
         df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
 
         count = 0
@@ -274,12 +402,14 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         df_var["bank_idx"] = idx_bank ##Guarda el índice de la transacción bancaria con la que lo comparamos
         chunks.append(df_var.copy()) ##2 tabs de identación. chunks almacenará cada uno
     
-    df_result = pd.concat(chunks, ignore_index=True) ##Contiene todos los 'df_var', sus puntos y datos
-    df_max = df_result[
-        df_result["Amount match"] == 
-        df_result.groupby("bank_idx")["Amount match"].transform("max")
+    if bool_original==True:
+        df_result = pd.concat(chunks, ignore_index=True) ##Contiene todos los 'df_var', sus puntos y datos
+        df_max = df_result[
+            df_result["Amount match"] == 
+            df_result.groupby("bank_idx")["Amount match"].transform("max")
         ]
-    
+    else:
+        df_max = df_base.copy()
     # print("creamos un csv del banco, el idx no me convence")
     # df_bank.to_csv("df_bank_py.csv")
     # print(df_base)
