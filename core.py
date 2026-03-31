@@ -282,42 +282,67 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     df_matches = pd.DataFrame.from_dict(matches_dict, orient="index").reset_index()
     df_matches = df_matches.rename(columns={"index":"match_key"})
     
-    ##Guardamos las filas que formarán la tabla puente
     
-    
-    exit()
-    
-    
-    # print(df)
-    bridge = (
-        df_matches.reset_index(names="match_key")
-        .apply(
-            lambda row:pd.DataFrame({
-                "match_key": row["match_key"],
-                "bank_idx": row["bank"],
-                "base_idx": [row["base"]] * len(row["bank"])
-            }),
-            axis=1
+    bool_test_base = True
+    if bool_test_base == True: ##Fue lo primero que me dió ChatGPT y pareció tener cierto sentido
+        bridge = (
+            df_matches
+            .apply(
+                lambda row:pd.DataFrame({
+                    "match_key": row["match_key"],
+                    "bank_idx": row["bank"],
+                    "base_idx": [row["base"]] * len(row["bank"])
+                }),
+                axis=1
+            )
         )
-    )
-    bridge = pd.concat(bridge.to_list(), ignore_index=True)
-    bridge = bridge.explode("base_idx")
-    result = (
-        bridge.merge(
-            df_bank.reset_index(names="bank_idx"),
-            on="bank_idx",
-            how="left"
+        bridge = pd.concat(bridge.to_list(), ignore_index=True)
+        bridge = bridge.explode("base_idx")
+        result = (
+            bridge.merge(
+                df_bank.reset_index(names="bank_idx"),
+                on="bank_idx",
+                how="left"
+            )
+            .merge(
+                df_base.reset_index(names="base_idx"),
+                on="base_idx",
+                how="left",
+                suffixes=("_bank","_base")
+            )
         )
-        .merge(
-            df_base.reset_index(names="base_idx"),
-            on="base_idx",
-            how="left",
-            suffixes=("_bank","_base")
+    elif bool_test_base == False: ##Ahora estamos en esto, por alguna razón...
+        ##Guardamos las filas que formarán la tabla puente
+        rows = []
+        for i, fila in df_matches.iterrows():
+            match_key = fila["match_key"]
+            bank_idxs = fila["bank"]
+            base_idxs = fila["base"]
+            ##Por cada índice de bank, combinamos cada índice de base
+            ##Esto hace que una fila de bank pueda repetirse
+            for bank_idx in bank_idxs:
+                for base_idx in base_idxs:
+                    rows.append({
+                        "match_key":match_key,
+                        "bank_idx":bank_idx,
+                        "base_idx":base_idx
+                    })
+        ##Convertimos la lista a DF
+        bridge = pd.DataFrame(rows)
+        ##Cambiamos nombres para hacer merge después
+        bank_ref = df_bank.reset_index().rename(columns={"index":"bank_idx"})
+        base_ref = df_base.reset_index().rename(columns={"index":"base_idx"})
+        ##Unimos bank_ref con bridge usando bank_idx; si hay varios, se repiten
+        result = (
+            bank_ref
+            .merge(bridge,on="bank_idx",how="left")
+            .merge(base_ref, on="base_idx",how="left", suffixes=("_bank","_base"))
         )
-    )
-    for col in result.columns:
-        print(col)
-    
+    print(result)
+        
+        
+        
+        
     
     if 1>2:
         rows = []
