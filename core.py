@@ -229,17 +229,18 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     ##convierte los rows en una lista
     timer1 = time.time()
     df_base = df_base.copy()
+    df_result = df_base.copy() ##df_result almacenará todos los valores resultados
+    df_base = df_base.copy()
     df_bank = df_bank.copy()
-    df_base["match_score"] = 0
-    for col in base_cols: ##Crea columnas para añadir puntos del match
-        df_base[f"{col} match"] = 0
-    df_bank["total matches"] = 0
-    df_base["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
-    df_base["valor buscado"] = ""
-    df_base["original_idx"] = 0
-    df_base["bank_idx"] = 0
+    df_result["match_score"] = 0
+    for col in df_result: ##Crea columnas para añadir puntos del match
+        df_result[f"{col} match"] = 0
+    df_result["total matches"] = 0
+    df_result["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
+    df_result["valor buscado"] = ""
+    df_result["original_idx"] = 0
+    df_result["bank_idx"] = 0
     n = len(base_cols)
-    df_result = df_base.copy() ##df_result almacenará todos los valores que df_var haya creado
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
     objetivo = []
@@ -298,7 +299,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         )
         bridge = pd.concat(bridge.to_list(), ignore_index=True)
         bridge = bridge.explode("base_idx")
-        result = (
+        df_result = (
             bridge.merge(
                 df_bank.reset_index(names="bank_idx"),
                 on="bank_idx",
@@ -333,12 +334,20 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         bank_ref = df_bank.reset_index().rename(columns={"index":"bank_idx"})
         base_ref = df_base.reset_index().rename(columns={"index":"base_idx"})
         ##Unimos bank_ref con bridge usando bank_idx; si hay varios, se repiten
-        result = (
+        df_result = (
             bank_ref
             .merge(bridge,on="bank_idx",how="left")
             .merge(base_ref, on="base_idx",how="left", suffixes=("_bank","_base"))
         )
-    print(result)
+    
+    # print(result)
+    print("Base cols:")
+    for col in df_base.columns:
+        print(col)
+    print("--")
+    
+    
+    
         
         
         
