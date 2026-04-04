@@ -229,9 +229,12 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     ##convierte los rows en una lista
     timer1 = time.time()
     df_base = df_base.copy()
-    df_result = df_base.copy() ##df_result almacenará todos los valores resultados
-    df_base = df_base.copy()
+    # df_base["base_idx"] = df_base.index
+    
     df_bank = df_bank.copy()
+    # df_bank["bank_idx"] = df_bank.index
+    
+    df_result = df_base.copy() ##df_result almacenará todos los valores resultados
     df_result["match_score"] = 0
     for col in df_result: ##Crea columnas para añadir puntos del match
         df_result[f"{col} match"] = 0
@@ -252,16 +255,6 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
         df_bank.groupby(bank_cols[col_var]).groups)
     matches_dict = {}
     i = 0
-    # CHATGPT:
-    # input:
-    # for key in bank_dict:
-        # base_idx = base_dict.get(key,[]) ##Si key existe en base_dict, devuelve índices
-        # bank_idx = bank_dict[key]
-        # if len(base_idx)>0:
-            # matches_dict[key] = {
-                # "bank":list(bank_idx),
-                # "base":list(base_idx
-            # }
     # Mine:
     print(f"Test col: >{bank_cols[col_var]}<")
     for key in bank_dict:
@@ -273,19 +266,18 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                 "bank":list(bank_idx),
                 "base":list(base_idx)
             }
-            print(f">{matches_dict[key]}<")
-            if i>10:
-                break
-    
-    
+
+    # exit()
     print("")
     ##Convierte diccionario a DF con dos columnas: "bank","base" con su respectiva data
     df_matches = pd.DataFrame.from_dict(matches_dict, orient="index").reset_index()
     df_matches = df_matches.rename(columns={"index":"match_key"})
     
     
-    bool_test_base = True
-    if bool_test_base == True: ##Fue lo primero que me dió ChatGPT y pareció tener cierto sentido
+    bool_test_base = 2
+    if bool_test_base == 1: ##Fue lo primero que me dió ChatGPT y pareció tener cierto sentido
+        ##Esto no los dió ChatGPT, a veces funciona mejor que el otro método
+        print("Usamos método Lambda")
         bridge = (
             df_matches
             .apply(
@@ -312,7 +304,8 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                 suffixes=("_bank","_base")
             )
         )
-    elif bool_test_base == False: ##Ahora estamos en esto, por alguna razón...
+    elif bool_test_base == 2: ##Ahora estamos en esto, por alguna razón...
+        print("Usamos método normal")
         ##Guardamos las filas que formarán la tabla puente
         rows = []
         for i, fila in df_matches.iterrows():
@@ -328,30 +321,18 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                         "bank_idx":bank_idx,
                         "base_idx":base_idx
                     })
-        ##Convertimos la lista a DF
         bridge = pd.DataFrame(rows)
-        ##Cambiamos nombres para hacer merge después
-        bank_ref = df_bank.reset_index().rename(columns={"index":"bank_idx"})
-        base_ref = df_base.reset_index().rename(columns={"index":"base_idx"})
-        ##Unimos bank_ref con bridge usando bank_idx; si hay varios, se repiten
-        df_result = (
-            bank_ref
-            .merge(bridge,on="bank_idx",how="left")
-            .merge(base_ref, on="base_idx",how="left", suffixes=("_bank","_base"))
-        )
     
-    # print(result)
-    print("Base cols:")
-    for col in df_base.columns:
-        print(col)
-    print("--")
-    
-    
-    
-        
-        
-        
-        
+    ##Convertimos la lista a DF
+    ##Cambiamos nombres para hacer merge después
+    bank_ref = df_bank.reset_index().rename(columns={"index":"bank_idx"})
+    base_ref = df_base.reset_index().rename(columns={"index":"base_idx"})
+    ##Unimos bank_ref con bridge usando bank_idx; si hay varios, se repiten
+    df_result = (
+        bank_ref
+        .merge(bridge,on="bank_idx",how="left", indicator=True)
+        .merge(base_ref, on="base_idx",how="left", suffixes=("_bank","_base"))
+    )
     
     if 1>2:
         rows = []
@@ -361,9 +342,6 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
             bank_idx = match_info.get("bank", [])
             base_idx = match_info.get("base", [])
             # print(f"Bank: {bank_idx}, base: {base_idx}")
-
-            
-            
             if not bank_idx or not base_idx:
                 continue
             for idx in bank_idx:
@@ -376,31 +354,6 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                 }   
                 row_var.update(base_row)
                 rows.append(row_var)
-        
-    
-   
-    # output:
-    # {
-        # 1000:{
-            # "bank":[1,5,10],
-            # "base":[2,8]
-        # }
-        # 2500:{
-            # "bank":[3],
-            # "base":[7,9]
-        # }
-    # }
-    
-        # print(f"Buscado: {base_cols[1]}")
-        # print(f">{key}<>{base_idx}<")
-        # if i>10:
-            # break
-        # bank_idx = bank_dict[key]
-    
-    # for key in base_dict:
-        # item = base_dict[key]
-        # if key in bank_dict:
-        # print(f"{key} - {item}")
     
     bool_original = False
     for idx_bank in df_bank.index: ##por cada transacción
