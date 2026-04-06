@@ -228,111 +228,106 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     """
     ##convierte los rows en una lista
     timer1 = time.time()
+    
     df_base = df_base.copy()
     # df_base["base_idx"] = df_base.index
-    
     df_bank = df_bank.copy()
     # df_bank["bank_idx"] = df_bank.index
-    
     df_result = df_base.copy() ##df_result almacenará todos los valores resultados
-    df_result["match_score"] = 0
-    for col in df_result: ##Crea columnas para añadir puntos del match
-        df_result[f"{col} match"] = 0
-    df_result["total matches"] = 0
-    df_result["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
-    df_result["valor buscado"] = ""
-    df_result["original_idx"] = 0
-    df_result["bank_idx"] = 0
     n = len(base_cols)
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
     objetivo = []
     
-    col_var = 0 ##int que nos dice la columna con la que testeamos
-    base_dict = (
-        df_base.groupby(base_cols[col_var]).groups)
-    bank_dict = (
-        df_bank.groupby(bank_cols[col_var]).groups)
-    matches_dict = {}
-    i = 0
-    # Mine:
-    print(f"Test col: >{bank_cols[col_var]}<")
-    for key in bank_dict:
-        bank_idx = bank_dict[key]
-        if key in base_dict:
-            base_idx = base_dict[key]
-            i = i +1
-            matches_dict[key] = {
-                "bank":list(bank_idx),
-                "base":list(base_idx)
-            }
+    bank_cols = ["Date","Amount"] ## Nombres de columnas 
+    for col_var in range(len(bank_cols)):
+        base_dict = (
+            df_base.groupby(base_cols[col_var]).groups)
+        bank_dict = (
+            df_bank.groupby(bank_cols[col_var]).groups)
+        current_col = bank_cols[col_var]
 
-    # exit()
-    print("")
-    ##Convierte diccionario a DF con dos columnas: "bank","base" con su respectiva data
-    df_matches = pd.DataFrame.from_dict(matches_dict, orient="index").reset_index()
-    df_matches = df_matches.rename(columns={"index":"match_key"})
-    
-    
-    bool_test_base = 2
-    if bool_test_base == 1: ##Fue lo primero que me dió ChatGPT y pareció tener cierto sentido
-        ##Esto no los dió ChatGPT, a veces funciona mejor que el otro método
-        print("Usamos método Lambda")
-        bridge = (
-            df_matches
-            .apply(
-                lambda row:pd.DataFrame({
-                    "match_key": row["match_key"],
-                    "bank_idx": row["bank"],
-                    "base_idx": [row["base"]] * len(row["bank"])
-                }),
-                axis=1
-            )
-        )
-        bridge = pd.concat(bridge.to_list(), ignore_index=True)
-        bridge = bridge.explode("base_idx")
-        df_result = (
-            bridge.merge(
-                df_bank.reset_index(names="bank_idx"),
-                on="bank_idx",
-                how="left"
-            )
-            .merge(
-                df_base.reset_index(names="base_idx"),
-                on="base_idx",
-                how="left",
-                suffixes=("_bank","_base")
-            )
-        )
-    elif bool_test_base == 2: ##Ahora estamos en esto, por alguna razón...
-        print("Usamos método normal")
-        ##Guardamos las filas que formarán la tabla puente
-        rows = []
-        for i, fila in df_matches.iterrows():
-            match_key = fila["match_key"]
-            bank_idxs = fila["bank"]
-            base_idxs = fila["base"]
-            ##Por cada índice de bank, combinamos cada índice de base
-            ##Esto hace que una fila de bank pueda repetirse
-            for bank_idx in bank_idxs:
-                for base_idx in base_idxs:
-                    rows.append({
-                        "match_key":match_key,
-                        "bank_idx":bank_idx,
-                        "base_idx":base_idx
-                    })
-        bridge = pd.DataFrame(rows)
-    
+        ##Crea matches_dict, estructura que cuyo key es un valor, item = index
+        matches_dict = {}
+        for key in bank_dict:
+            bank_idx = bank_dict[key]
+            if key in base_dict:
+                base_idx = base_dict[key]
+                matches_dict[key] = {
+                    "bank":list(bank_idx),
+                    "base":list(base_idx)
+                }
+        # print(f"Datos: {current_col}")
+        for key in matches_dict:
+            item = matches_dict[key]
+            # print(f"{key}-{item}")
+        ##Convierte diccionario a DF con dos columnas: "bank","base" con su respectiva data
+        df_matches = pd.DataFrame.from_dict(matches_dict, orient="index").reset_index()
+        df_matches = df_matches.rename(columns={"index":"valor buscado"})
+
+        bool_test_base = 2
+        if bool_test_base == 2: ##Ahora estamos en esto, por alguna razón...
+            ##Guardamos las filas que formarán la tabla puente
+            rows = []
+            for i, fila in df_matches.iterrows():
+                valor_buscado = fila["valor buscado"]
+                bank_idxs = fila["bank"]
+                base_idxs = fila["base"]
+                ##Por cada índice de ba|nk, combinamos cada índice de base
+                ##Esto hace que una fila de bank pueda repetirse
+                for bank_idx in bank_idxs:
+                    for base_idx in base_idxs:
+                        objetivo = str(current_col) + str(": ") + str(valor_buscado)
+                        rows.append({
+                            f"valor buscado":objetivo,
+                            "bank_idx":bank_idx,
+                            "base_idx":base_idx
+                        })
+            bridge = pd.DataFrame(rows)
+            bridge[f"{current_col} match"] = 1
+            bridge[f"{current_col} match"] = bridge[f"{current_col} match"].astype(int) 
+            print(f"{current_col} match: to int")
+            chunks.append(bridge)
+    df_result = pd.concat(chunks, ignore_index=True)
+    df_result = df_result.fillna(0)
+    exit()
+    print(df_result)
+    # resultado = reduce(
+        # lambda left, right: left.merge(
+            # right,
+            # on=["bank_idx", "base_idx"],
+            # how="outer"   # o "inner" si solo quieres coincidencias exactas
+        # ), chunks
+    # )
+    # print(resultado)
+   
+    exit()
+        # print("Bridge")
     ##Convertimos la lista a DF
     ##Cambiamos nombres para hacer merge después
-    bank_ref = df_bank.reset_index().rename(columns={"index":"bank_idx"})
-    base_ref = df_base.reset_index().rename(columns={"index":"base_idx"})
+    df_bank = df_bank.reset_index().rename(columns={"index":"bank_idx"})
+    df_base = df_base.reset_index().rename(columns={"index":"base_idx"})
     ##Unimos bank_ref con bridge usando bank_idx; si hay varios, se repiten
     df_result = (
-        bank_ref
+        df_bank
         .merge(bridge,on="bank_idx",how="left", indicator=True)
-        .merge(base_ref, on="base_idx",how="left", suffixes=("_bank","_base"))
+        .merge(df_base, on="base_idx",how="left", suffixes=("_bank","_base"))
     )
+    print("Base")
+    # bridge = bridge.drop("match_key", axis=1)
+    for col in df_base.columns:
+        print(f">{col}<")
+    print("Bridge")
+    for col in bridge.columns:
+        print(f">{col}<")
+    print("Bank")
+    for col in df_bank.columns:
+        print(f">{col}<")
+    
+    # exit()
+    
+    print("Result df:")
+    print(df_result)
     
     if 1>2:
         rows = []
@@ -359,12 +354,25 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     for idx_bank in df_bank.index: ##por cada transacción
         if bool_original ==False:
             break
+        else:
+            df_result = df_base.copy()
+            df_result["match_score"] = 0
+            for col in df_result: ##Crea columnas para añadir puntos del match
+                df_result[f"{col} match"] = 0
+            df_result["total matches"] = 0
+            df_result["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
+            df_base["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
+            df_result["valor buscado"] = ""
+            df_result["original_idx"] = 0
+            df_result["bank_idx"] = 0
         df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
 
         count = 0
         ##Contiene un string: "objetivo:valor", example: "Date:123, Amount:456"
         objetivo = ", ".join([f"{col}:{df_bank.loc[idx_bank, col]}" for col in bank_cols]) 
-        
+        print(f"Objetivo: >{objetivo}<")
+        print("Fin")
+        break
         for idx_base in df_var.index: ##por cada dato del ERP
             # print(df_var.loc[idx_base,"Amount"])
             ##Iteramos las listas con los valores de los componentes interactivos
