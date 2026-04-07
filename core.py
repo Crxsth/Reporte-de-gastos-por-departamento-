@@ -238,7 +238,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     chunks = [] ##Contendrá referencias a df_var.copy() en cada bucle para evitar lag 
     objetivo = []
-    
+    col_list = []
     bank_cols = ["Date","Amount"] ## Nombres de columnas 
     for col_var in range(len(bank_cols)):
         base_dict = (
@@ -277,21 +277,35 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
                 ##Esto hace que una fila de bank pueda repetirse
                 for bank_idx in bank_idxs:
                     for base_idx in base_idxs:
-                        objetivo = str(current_col) + str(": ") + str(valor_buscado)
+                        objetivo = str(current_col) + str(": ") + str(valor_buscado) 
+                        
                         rows.append({
                             f"valor buscado":objetivo,
                             "bank_idx":bank_idx,
                             "base_idx":base_idx
                         })
             bridge = pd.DataFrame(rows)
-            bridge[f"{current_col} match"] = 1
-            bridge[f"{current_col} match"] = bridge[f"{current_col} match"].astype(int) 
-            print(f"{current_col} match: to int")
+            col_name = f"{current_col} match"
+            bridge[col_name] = 1
             chunks.append(bridge)
-    df_result = pd.concat(chunks, ignore_index=True)
-    df_result = df_result.fillna(0)
+        col_list.append(col_name) ##Contiene los nombres de las columnas con puntajes
+
+    bridge = pd.concat(chunks, ignore_index=True) ##Une los df con referencias
+    bridge[col_list] = bridge[col_list].fillna(0).astype(int)
+    print(bridge[col_list])
     exit()
-    print(df_result)
+    mask = bridge.duplicated(subset=["bank_idx","base_idx"], keep=False)
+    bridge_unique = bridge[~mask]
+    bridge_duplicated = bridge[mask]
+    bridge_duplicated = bridge_duplicated.groupby(["bank_idx", "base_idx"], as_index=False).agg(
+        {"valor buscado": lambda x: ", ".join(x), **{col: "max" for col in col_list}}
+    )
+    
+    print(bridge_duplicated)
+    bridge = pd.concat([bridge_unique,bridge_duplicated], ignore_index=True)
+    
+    bridge.to_csv("bridge test.csv",index=False)
+    exit()
     # resultado = reduce(
         # lambda left, right: left.merge(
             # right,
