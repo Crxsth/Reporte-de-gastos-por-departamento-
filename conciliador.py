@@ -225,13 +225,13 @@ def render_conciliate():
             )
         
         df_matches = df_base.join(
-            df_max.set_index("original_idx")[["match_score"]],
+            df_max.set_index("base_idx")[["match_score"]],
             how="left"
         )
         n = len(base_cols)
         df_matches["confianza"] = (df_matches["match_score"] / n)*100
         
-        matched_idx = df_max["original_idx"].dropna().unique()
+        matched_idx = df_max["base_idx"].dropna().unique()
         df_unmatched = df_base.loc[~df_base.index.isin(matched_idx)].copy() ##Contiene los que sobran, en chatgpt confío 
         
         ss.df_result = df_result ##all match >0

@@ -227,106 +227,43 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     """
     timer1 = time.time()
-    ##índices
+    
+    df_base = df_base.copy()
+    df_bank = df_bank.copy()
     df_bank["bank_idx"] = df_bank.index
     df_base["base_idx"] = df_base.index
-    
-    # Construir "valor buscado" antes de mergear
     df_bank["valor buscado"] = df_bank.apply(
-        lambda row: ", ".join(f"{b}:{row[b]}" for b in bank_cols), axis=1
+        lambda row: ", ".join(f"{col}: {row[col]}" for col in bank_cols), axis=1
     )
-
-    # Merge por cada criterio por separado
+    
     merges = []
-    for b_col, base_col in zip(bank_cols, base_cols):
-        temp = df_bank.merge(df_base, left_on=b_col, right_on=base_col, how="inner")
-        temp[f"{b_col} match"] = 1
-        merges.append(temp[["bank_idx", "base_idx", "valor buscado", f"{b_col} match"]])
-    print("Merges:")
-
-    # Unir todos los merges
-    match_cols = [f"{b} match" for b in bank_cols]
-    df_result = merges[0]
-    for m in merges[1:]:
-        df_result = df_result.merge(m, on=["bank_idx", "base_idx", "valor buscado"], how="outer")
-
+    ##Se hace 1:1 a las columnas, se iteran, se hace un merge para unir matches, se crea una columna con puntajes
+    for col1, col2 in zip(bank_cols, base_cols): ##Creamos variable 1:1 con las columnas de los 'df' a comparar
+        temp = df_bank.merge(df_base, left_on=col1, right_on=col2, how="inner")  ##Hacemos un merge, donde los datos sean iguales
+        temp[f"{col1} match"] = 1 ##Columna con puntos
+        merges.append(temp[["bank_idx","base_idx","valor buscado",f"{col1} match"]])
+        
+    ##Se unen los merges 
+    match_cols = [f"{col} match" for col in bank_cols] ##cols matching as ['Date match','Amount match']
+    """Cada df de 'merges' contiene la columna de puntajes, as ["Date match"] 
+    por ello si las unimos, nos queda un dataframe con los puntajes unidos donde corresponda
+    """
+    df_result = merges[0] 
+    for df_var in merges[1:]:
+        df_result = df_result.merge(df_var, on=["bank_idx","base_idx", "valor buscado"], how="outer")
     df_result = df_result.fillna(0)
-
-    # Score y filtro
+    
+    ##Score
     df_result["match_score"] = df_result[match_cols].sum(axis=1)
     df_result = df_result[df_result["match_score"] > 0]
-
-    # Agregar original_idx desde df_base
+    
     df_result = df_result.merge(df_base[["base_idx"]], left_on="base_idx", right_index=True, how="left")
-    df_result.to_csv("df_result vectorizado.csv", index=False)
-    
-    bool_original = False
-    for idx_bank in df_bank.index: ##por cada transacción
-        if bool_original ==False:
-            break
-        else:
-            df_result = df_base.copy()
-            df_result["match_score"] = 0
-            for col in df_result: ##Crea columnas para añadir puntos del match
-                df_result[f"{col} match"] = 0
-            df_result["total matches"] = 0
-            df_result["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
-            df_base["available"] = True ##Serie utilizada para saber si la transacción ha sido o no utilizada
-            df_result["valor buscado"] = ""
-            df_result["original_idx"] = 0
-            df_result["bank_idx"] = 0
-        df_var = df_base[df_base["available"] == True].copy() ##Creamos copia de los available
-
-        count = 0
-        ##Contiene un string: "objetivo:valor", example: "Date:123, Amount:456"
-        objetivo = ", ".join([f"{col}:{df_bank.loc[idx_bank, col]}" for col in bank_cols]) 
-        print(f"Objetivo: >{objetivo}<")
-        print("Fin")
-        break
-        for idx_base in df_var.index: ##por cada dato del ERP
-            # print(df_var.loc[idx_base,"Amount"])
-            ##Iteramos las listas con los valores de los componentes interactivos
-            for i, dato in enumerate(bank_cols):
-                banco_matching_rule_n = bank_cols[i] ##Nombres de las columnas de las listas
-                base_matching_rule_n = base_cols[i]
-                valor_bank = df_bank.loc[idx_bank, banco_matching_rule_n] ##Valor del índice & list.value
-                valor_base = df_base.loc[idx_base, base_matching_rule_n] 
-                
-                if valor_bank == valor_base: ##Compara si hacen match nuestros valores
-                    df_var.loc[idx_base, f"{dato} match"] = 1 ##Punto
-                    df_var.loc[idx_base, "valor buscado"] = objetivo
-                # else:
-                    # count = count +1
-            match_cols = [f"{dato} match" for dato in base_cols] ##Crea una lista: ["Date match","Amount match"]
-        count = count + 1
-        
-        ##df_var almacena aquellos con >0 matches
-        df_var["match_score"] = df_var[match_cols].sum(axis=1) ##Suma de los datos
-        df_var = df_var[df_var["match_score"]!=0] ##Es un drop para filtrar solo los que tengan valor
-        df_var["original_idx"] = df_var.index ##Guarda el índice original para no perderlo después, en caso de necesitar búsquedas
-        df_var["bank_idx"] = idx_bank ##Guarda el índice de la transacción bancaria con la que lo comparamos
-        chunks.append(df_var.copy()) ##2 tabs de identación. chunks almacenará cada uno
-    
-    if bool_original==True:
-        df_result = pd.concat(chunks, ignore_index=True) ##Contiene todos los 'df_var', sus puntos y datos
-        df_max = df_result[
-            df_result["Amount match"] == 
-            df_result.groupby("bank_idx")["Amount match"].transform("max")
-        ]
-    else:
-        df_max = df_base.copy()
-    # print("creamos un csv del banco, el idx no me convence")
-    # df_bank.to_csv("df_bank_py.csv")
-    # print(df_base)
-    # print(df_max)
+    df_max = df_result[
+        df_result["match_score"] ==
+        df_result.groupby("bank_idx")["match_score"].transform("max")
+    ]
     
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
-    # print(f"Contador de matches: {count}")
-
-    # df_result.to_csv("df_result.csv")
-    # print("Se ha hecho df_result.csv, contiene todos los puntajes")
-    # df_max.to_csv("df_max.csv")
-    # print("Se ha creado df_max.csv, contiene solo los máximos")
     return df_result, df_max
