@@ -248,22 +248,56 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     """Cada df de 'merges' contiene la columna de puntajes, as ["Date match"] 
     por ello si las unimos, nos queda un dataframe con los puntajes unidos donde corresponda
     """
-    df_result = merges[0] 
+    bridge = merges[0] 
     for df_var in merges[1:]:
-        df_result = df_result.merge(df_var, on=["bank_idx","base_idx", "valor buscado"], how="outer")
-    df_result = df_result.fillna(0)
+        bridge = bridge.merge(df_var, on=["bank_idx","base_idx", "valor buscado"], how="outer")
+    bridge = bridge.fillna(0)
     
     ##Score
-    df_result["match_score"] = df_result[match_cols].sum(axis=1)
-    df_result = df_result[df_result["match_score"] > 0]
+    bridge["match_score"] = bridge[match_cols].sum(axis=1)
+    bridge = bridge[bridge["match_score"] > 0]
+    ##bridge es como un bridge. Contiene los índices, valor buscado y los puntos
+    ##df_base["bank_idx", "base_idx", "valor buscado", "Date match", "Amount match", "match_score"]
     
-    df_result = df_result.merge(df_base[["base_idx"]], left_on="base_idx", right_index=True, how="left")
-    df_max = df_result[
-        df_result["match_score"] ==
-        df_result.groupby("bank_idx")["match_score"].transform("max")
+        
+    df_max = bridge[
+        bridge["match_score"] ==
+        bridge.groupby("bank_idx")["match_score"].transform("max")
     ]
-    
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
-    return df_result, df_max
+    return bridge, df_max
+
+def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
+    """Construye los dataframes usados para el conciliador:
+    
+    df_result: Es un merge con los df: banco & bridge & base; mantiene solo las columnas especificadas
+    df_matched: Es df_result pero solo con los máximos valores de la columna ["match_score"]
+    df_conciliation: Se unen los dataframes de manera bruta con el mejor candidato
+    """
+    df_bank = df_bank.copy()
+    df_bank.insert(0, "bank_idx", df_bank.index)
+    df_base = df_base.copy()
+    df_base.insert(0,"base_idx",df_base.index)
+    
+    ##Cambiamos posicion de 'base_idx' en bridge
+    serie_var = bridge["base_idx"]
+    bridge = bridge.drop("base_idx", axis=1)
+    bridge["base_idx"] = serie_var
+    
+    ##Se crea df_result:
+    df_result = df_bank.merge(bridge, how="left", on="bank_idx")
+    df_result = df_result.merge(df_base,how="left",on="base_idx", suffixes=(" Bank"," Base"))
+    
+    ##Se crea df_matched / df_max
+    df_matched = df_result[
+        df_result["match_score"] == 
+        df_result.groupby("bank_idx")["match_score"].transform("max")
+    ]
+    
+    ##Se crea df_conciliation
+    
+    
+    df_result.to_csv("df_result.csv")
+    return

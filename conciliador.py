@@ -261,7 +261,7 @@ def render_conciliate():
         # result1, result2 = st.columns(2)
         with result1:
             clicked = st.download_button(
-                label= "Descargar archivo 'Possible_matches'",
+                label= "Descargar archivo 'Possible_matches' / 'df_result'",
                 data= df_result_bytes, 
                 file_name = "Possible_matches.csv",
                 mime= "text/csv",
