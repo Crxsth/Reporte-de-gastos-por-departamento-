@@ -288,7 +288,7 @@ def render_conciliate():
             clicked3 = st.download_button(
                 label = "Descargar 'Unmatched' data",
                 data = df_unmatched_bytes,
-                file_name = "Unmatched data",
+                file_name = "Unmatched data.csv",
                 mime= "text/csv",
                 key = "download_df_unmatched",
                 help = "Archivo que contiene datos que no tuvieron match",
