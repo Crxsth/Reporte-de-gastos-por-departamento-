@@ -223,16 +223,19 @@ def render_conciliate():
                 base_cols=base_cols,
                 bank_cols=bank_cols
             )
+        """Merge los df: 
+            df_result: bank[bank_cols], bridge, base[base_cols]
+            df_max: df_result[match_score].max()
+            df_conciliation: bank, bridge, base"""
+        df_result, df_max, df_conciliation = core.build_review_df(bridge, df_bank, df_base, bank_cols, base_cols)
         
         df_matches = df_base.join(
             df_max.set_index("base_idx")[["match_score"]],
             how="left"
         )
-        n = len(base_cols)
-        df_matches["confianza"] = (df_matches["match_score"] / n)*100
-        
-        matched_idx = df_max["base_idx"].dropna().unique()
-        df_unmatched = df_base.loc[~df_base.index.isin(matched_idx)].copy() ##Contiene los que sobran, en chatgpt confío 
+        df_unmatched = df_matches[
+            df_matches["match_score"].isna() | (df_matches["match_score"] == 0)
+        ]
         
         ss.df_result = df_result ##all match >0
         ss.df_max = df_max ##max (match)

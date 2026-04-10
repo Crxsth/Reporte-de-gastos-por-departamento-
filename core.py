@@ -273,13 +273,20 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     """Construye los dataframes usados para el conciliador:
     
     df_result: Es un merge con los df: banco & bridge & base; mantiene solo las columnas especificadas
+        Este existe para cuando se solicite ver la información de todo lo que se hizo
     df_matched: Es df_result pero solo con los máximos valores de la columna ["match_score"]
+        Matches con más puntos, es ideal
     df_conciliation: Se unen los dataframes de manera bruta con el mejor candidato
+        Conciliación completa, para presentar
     """
     df_bank = df_bank.copy()
-    df_bank.insert(0, "bank_idx", df_bank.index)
     df_base = df_base.copy()
+    bridge = bridge.copy()
+    df_bank.insert(0, "bank_idx", df_bank.index)
     df_base.insert(0,"base_idx",df_base.index)
+    base_cols.insert(0,"base_idx")
+    bank_cols_use = ["bank_idx"] + bank_cols
+    
     
     ##Cambiamos posicion de 'base_idx' en bridge
     serie_var = bridge["base_idx"]
@@ -287,17 +294,21 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     bridge["base_idx"] = serie_var
     
     ##Se crea df_result:
-    df_result = df_bank.merge(bridge, how="left", on="bank_idx")
-    df_result = df_result.merge(df_base,how="left",on="base_idx", suffixes=(" Bank"," Base"))
+    df_result = df_bank[bank_cols_use].merge(bridge, how="left", on="bank_idx")
+    df_result = df_result.merge(df_base[base_cols],how="left",on="base_idx", suffixes=(" Bank"," Base"))
     
     ##Se crea df_matched / df_max
-    df_matched = df_result[
+    df_max = df_result[
         df_result["match_score"] == 
         df_result.groupby("bank_idx")["match_score"].transform("max")
-    ]
+    ].copy()
+    n = len(base_cols)-1
+    df_max["confianza"] = (df_max["match_score"] / n)*100
     
+
     ##Se crea df_conciliation
+    df_conciliation = df_bank.merge(bridge,how="left", on="bank_idx")
+    df_conciliation = df_conciliation.merge(df_base,how="left",on="base_idx")
     
-    
-    df_result.to_csv("df_result.csv")
-    return
+    # df_result.to_csv("df_result.csv")
+    return df_result, df_max, df_conciliation
