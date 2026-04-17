@@ -284,6 +284,7 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     bridge = bridge.copy()
     df_bank.insert(0, "bank_idx", df_bank.index)
     df_base.insert(0,"base_idx",df_base.index)
+    base_cols = base_cols.copy()
     base_cols.insert(0,"base_idx")
     bank_cols_use = ["bank_idx"] + bank_cols
     
@@ -308,7 +309,12 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
 
     ##Se crea df_conciliation
     df_conciliation = df_bank.merge(bridge,how="left", on="bank_idx")
-    df_conciliation = df_conciliation.merge(df_base,how="left",on="base_idx")
+    df_conciliation = df_conciliation.merge(df_base,how="left",on="base_idx",suffixes=(" Bank"," Base"))
+    # df_conciliation = df_conciliation.groupby("bank_idx")["match_score"].transform("max")
+    df_conciliation = df_conciliation[
+        df_conciliation["match_score"] ==
+        df_conciliation.groupby("bank_idx")["match_score"].transform("max")
+    ].copy()
     
     # df_result.to_csv("df_result.csv")
     return df_result, df_max, df_conciliation

@@ -82,7 +82,7 @@ def render_simple_rules():
     ss = st.session_state
     df_base = ss.get("df_base")
     df_bank = ss.get("df_bank")
-    st.write(f"Columnas del banco: {df_bank}")
+    # st.write(f"Columnas del banco: {df_bank}")
     
     ##3 buttons
     title1, title2, title3 = st.columns(3)
@@ -127,7 +127,7 @@ def render_conciliate():
     if "advanced_settings" not in ss:
         ss.advanced_settings = False
     st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
-    st.write(ss)
+    # st.write(ss)
     
     ## Lector de archivos
     if DEV_MODE == True:
@@ -217,7 +217,7 @@ def render_conciliate():
         bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
         ##Llamada al conciliador
         with st.spinner("Conciliando datos... "):
-            df_result, df_max = core.conciliador(
+            bridge, df_max = core.conciliador(
                 df_base=df_base,
                 df_bank=df_bank,
                 base_cols=base_cols,
@@ -237,10 +237,11 @@ def render_conciliate():
             df_matches["match_score"].isna() | (df_matches["match_score"] == 0)
         ]
         
-        ss.df_result = df_result ##all match >0
+        ss.df_result = df_result ##all match > 0
         ss.df_max = df_max ##max (match)
         ss.df_matches = df_matches
         ss.df_unmatched = df_unmatched
+        ss.df_conciliation = df_conciliation ##Merged completo
         
     ##Hacemos un merge de banco > ERP
     
@@ -255,9 +256,11 @@ def render_conciliate():
         df_result = ss.df_result
         df_matches = ss.df_matches
         df_unmatched = ss.df_unmatched
+        df_conciliation = ss.df_conciliation
         df_result_bytes = df_result.to_csv(index=False).encode("utf-8")
         df_matches_bytes = df_matches.to_csv(index=False).encode("utf-8")
         df_unmatched_bytes = df_unmatched.to_csv(index=False).encode("utf-8")
+        df_conciliation_bytes = df_conciliation.to_csv(index=False).encode("utf-8")
         
         st.divider()
         result1, result2, result3 = st.columns(3)
@@ -272,19 +275,20 @@ def render_conciliate():
                 help= "Archivo que contiene todas las posibles coincidencias",
                 width="stretch"
             )
-            st.info("Este archivo contiene las posibles coincidencias entre el ERP y el banco.")
+            st.info("Este archivo contiene las posibles coincidencias entre ambas tablas y muestra solo las columnas seleccionadas.")
             if clicked:
                 st.success("Descargando...")
         with result2:
             clicked2 = st.download_button(
-                label = "Descargar 'Archivo base con matches'",
-                data = df_matches_bytes,
+                label = "Descargar Archivo conciliado",
+                data = df_conciliation_bytes,
                 file_name = "Matched file.csv",
-                key="download_df_matches",
+                key="download_df_conciliated",
                 help="Archivo base con el añadido del match más probable",
                 width="stretch"
             )
-            st.info("Este archivo contiene su archivo 'base' y tendrá columna con valores a la derecha del mismo")
+            st.info("Este archivo une ambas tablas, en medio de ambas se encuentran los puntajes.")
+            st.markdown("**Nota:** Este reporte puede contener datos repetidos, favor de revisar.")
             if clicked2:
                 st.success("Descargando...")
         with result3:
