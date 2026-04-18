@@ -149,16 +149,39 @@ class ReporteDf:
             if porcentaje_numerico>0.95:
                 self.df[col] = serie_converted
                 self.log.append(f"number_change[{i}]-[{col}]")
-        
+
+            
         ##Los restantes, los tratamos de convertir
-        for i, col in enumerate(self.df.columns): ##object = strings and all
-            if self.df[col].dtype == "object":
+        for i, col in enumerate(self.df.columns): ##object = not defined data type
+            ##Si los datos son muy grandes, dejamos string
+            serie_str = self.df[col].astype(str)
+            avg_len = serie_str.str.len().mean()
+            unique_ratio = serie_str.nunique() / len(serie_str)
+            if avg_len > 10 and unique_ratio > 0.9: 
+                self.df[col] = serie_str.str.strip()
+                self.non_numeric_columns.append(col)
+                continue
+            
+            ##Si es algún ID como "bank ref", igual va as 'string'
+            col_clean = col.lower().strip()
+            ID_EXACT = ["r_trans_no", "reference number"] ##exact match
+            ID_HINTS = ["reference"] ##any
+            if (
+                col_clean in ID_EXACT or
+                any(hint in col_clean for hint in ID_HINTS)
+            ):
+                self.df[col] = self.df[col].astype(str).str.strip()
+                self.non_numeric_columns.append(col)
+                continue
+            
+            
+            if self.df[col].dtype == "object" and ("amount" in col.lower() or "monto" in col.lower()):
                 serie_converted = pd.to_numeric(
                 self.df[col].str.replace(
                 r"[^\d\.-]", "", regex=True), errors="coerce"
                 )
                 number_percent = serie_converted.notna().mean()  #% de valores numbers.
-                if number_percent>=0.95 or "amount" in col.lower():
+                if number_percent>=0.95:
                     self.df[col] = serie_converted
                     self.numeric_columns.append(col)
                     self.log.append(f"number_change[{i}]-[{col}]")
