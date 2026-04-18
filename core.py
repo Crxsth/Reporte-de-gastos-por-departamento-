@@ -146,7 +146,12 @@ class ReporteDf:
         for i,col in enumerate(self.df.columns):
             serie_converted = pd.to_numeric(self.df[col], errors="coerce")
             porcentaje_numerico = serie_converted.notna().mean()
-            if porcentaje_numerico>0.95:
+            
+            serie = self.df[col].dropna().astype(str).str.strip()
+            serie = serie[serie != ""]
+            avg_len = serie.str.len().mean()
+            
+            if porcentaje_numerico>0.95 and avg_len< 15:
                 self.df[col] = serie_converted
                 self.log.append(f"number_change[{i}]-[{col}]")
 
