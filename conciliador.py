@@ -217,7 +217,7 @@ def render_conciliate():
         bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
         ##Llamada al conciliador
         with st.spinner("Conciliando datos... "):
-            bridge, df_max = core.conciliador(
+            bridge = core.conciliador(
                 df_base=df_base,
                 df_bank=df_bank,
                 base_cols=base_cols,

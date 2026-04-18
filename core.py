@@ -239,6 +239,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     merges = []
     ##Se hace 1:1 a las columnas, se iteran, se hace un merge para unir matches, se crea una columna con puntajes
     for col1, col2 in zip(bank_cols, base_cols): ##Creamos variable 1:1 con las columnas de los 'df' a comparar
+        print(f"{col1} - {col2}")
         temp = df_bank.merge(df_base, left_on=col1, right_on=col2, how="inner")  ##Hacemos un merge, donde los datos sean iguales
         temp[f"{col1} match"] = 1 ##Columna con puntos
         merges.append(temp[["bank_idx","base_idx","valor buscado",f"{col1} match"]])
@@ -259,15 +260,10 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     ##bridge es como un bridge. Contiene los índices, valor buscado y los puntos
     ##df_base["bank_idx", "base_idx", "valor buscado", "Date match", "Amount match", "match_score"]
     
-        
-    df_max = bridge[
-        bridge["match_score"] ==
-        bridge.groupby("bank_idx")["match_score"].transform("max")
-    ]
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
-    return bridge, df_max
+    return bridge
 
 def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     """Construye los dataframes usados para el conciliador:
