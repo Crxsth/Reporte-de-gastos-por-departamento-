@@ -156,8 +156,7 @@ class ReporteDf:
             ##Si los datos son muy grandes, dejamos string
             serie_str = self.df[col].astype(str)
             avg_len = serie_str.str.len().mean()
-            unique_ratio = serie_str.nunique() / len(serie_str)
-            if avg_len > 10 and unique_ratio > 0.9: 
+            if avg_len > 10:
                 self.df[col] = serie_str.str.strip()
                 self.non_numeric_columns.append(col)
                 continue
