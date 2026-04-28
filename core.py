@@ -67,7 +67,7 @@ class ReporteDf:
             "febrero","enero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre",
             "a:","de:","para:","cliente","titular","sucursal"
         ]
-        for i, fila in enumerate(matrix[:11]):
+        for i, fila in enumerate(matrix[:30]):
             if (len(fila) == len(self.df.columns) ##Lógica que revisa si 
             and sum(not str(x).startswith("Unnamed") for x in fila) > len(fila) *0.5): 
                 dict_idx[i] = 0 ##Si se cumplen las condiciones, se guarda.
@@ -162,7 +162,9 @@ class ReporteDf:
             serie_str = self.df[col].astype(str)
             avg_len = serie_str.str.len().mean()
             if avg_len > 10:
-                self.df[col] = serie_str.str.strip()
+                self.df[col] = (
+                    serie_str.str.strip().astype("string")
+                )
                 self.non_numeric_columns.append(col)
                 continue
             
@@ -266,27 +268,28 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     merges = []
     ##Se hace 1:1 a las columnas, se iteran, se hace un merge para unir matches, se crea una columna con puntajes
     for col1, col2 in zip(bank_cols, base_cols): ##Creamos variable 1:1 con las columnas de los 'df' a comparar
-        print(f"{col1} - {col2}")
+        print(f"Matching: {col1} - {col2}")
         temp = df_bank.merge(df_base, left_on=col1, right_on=col2, how="inner")  ##Hacemos un merge, donde los datos sean iguales
+        temp = temp[temp[col1].notna()] ##Drop na temporal, para evitar valores vacíos...
+        temp = temp[temp[col1] != ""]
         temp[f"{col1} match"] = 1 ##Columna con puntos
         merges.append(temp[["bank_idx","base_idx","valor buscado",f"{col1} match"]])
-        
+    
     ##Se unen los merges 
     match_cols = [f"{col} match" for col in bank_cols] ##cols matching as ['Date match','Amount match']
     """Cada df de 'merges' contiene la columna de puntajes, as ["Date match"] 
     por ello si las unimos, nos queda un dataframe con los puntajes unidos donde corresponda
     """
     bridge = merges[0] 
-    for df_var in merges[1:]:
+    for df_var in merges[1:]: ##Une los diversos merge que hicimos anteriormente con puntos 
         bridge = bridge.merge(df_var, on=["bank_idx","base_idx", "valor buscado"], how="outer")
     bridge = bridge.fillna(0)
     
-    ##Score
+    ##Score: colocamos la columna con suma, y dropeamos dejamos solo los >0
     bridge["match_score"] = bridge[match_cols].sum(axis=1)
     bridge = bridge[bridge["match_score"] > 0]
     ##bridge es como un bridge. Contiene los índices, valor buscado y los puntos
     ##df_base["bank_idx", "base_idx", "valor buscado", "Date match", "Amount match", "match_score"]
-    
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
@@ -316,7 +319,7 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     serie_var = bridge["base_idx"]
     bridge = bridge.drop("base_idx", axis=1)
     bridge["base_idx"] = serie_var
-    
+
     ##Se crea df_result:
     df_result = df_bank[bank_cols_use].merge(bridge, how="left", on="bank_idx")
     df_result = df_result.merge(df_base[base_cols],how="left",on="base_idx", suffixes=(" Bank"," Base"))
@@ -328,6 +331,7 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     ].copy()
     n = len(base_cols)-1
     df_max["confianza"] = (df_max["match_score"] / n)*100
+
     
 
     ##Se crea df_conciliation
