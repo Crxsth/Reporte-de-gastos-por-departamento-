@@ -141,12 +141,23 @@ class ReporteDf:
         """
         self.numeric_columns = []
         self.non_numeric_columns = []
+        self.empty_columns = []
+        
+        ##Sacamos las empty_columns
+        for i,col in enumerate(self.df.columns):
+            serie = self.df[col]
+            serie = serie[serie !=""].dropna()
+            if serie.empty:
+                self.empty_columns.append(col)
+                self.log.append(f"Empty column skip:[{i}]-[{col}]")
         
         ##Convertimos columnas a número de ser posible
         for i,col in enumerate(self.df.columns):
+            if col in self.empty_columns:
+                continue
             serie_converted = pd.to_numeric(self.df[col], errors="coerce")
-            porcentaje_numerico = serie_converted.notna().mean()
             
+            porcentaje_numerico = serie_converted.notna().mean()
             serie = self.df[col].dropna().astype(str).str.strip()
             serie = serie[serie != ""]
             avg_len = serie.str.len().mean()
@@ -154,13 +165,16 @@ class ReporteDf:
             if porcentaje_numerico>0.95 and avg_len< 15:
                 self.df[col] = serie_converted
                 self.log.append(f"number_change[{i}]-[{col}]")
+                self.numeric_columns.append(col)
 
-            
         ##Los restantes, los tratamos de convertir
         for i, col in enumerate(self.df.columns): ##object = not defined data type
+            if col in self.numeric_columns or col in self.empty_columns: ##Si es numérico o empty, no va aquí
+                continue
             ##Si los datos son muy grandes, dejamos string
             serie_str = self.df[col].astype(str)
             avg_len = serie_str.str.len().mean()
+            
             if avg_len > 10:
                 self.df[col] = (
                     serie_str.str.strip().astype("string")
