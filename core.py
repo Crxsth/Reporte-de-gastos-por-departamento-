@@ -6,6 +6,9 @@ import pandas as pd
 from pathlib import Path
 import re
 import sys
+import warnings
+
+
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
@@ -38,6 +41,7 @@ class ReporteDf:
         self.numeric_columns = []
         self.non_numeric_columns = []
         self.empty_columns = []
+        self.date_columns = []
         
 
     def fix_header(self):
@@ -114,23 +118,32 @@ class ReporteDf:
         Returns:
             ReporteDf: devuelve self para encadenar.
         """
+        converted = False
         if col_name == None:
             for i, col in enumerate(self.df.columns):
                 if "date" in col.lower():
-                    try:
-                        self.df = string_to_number(self.df, [col]) ##Convertir a number
-                        s_base = self.df[col] ##Serie base
-                        s_converted =pd.to_datetime( ##Convertimos con excel
-                            s_base, unit="D", origin="1899-12-30", errors="coerce"
+                    serie_base = self.df[col]
+                    serie_numeric = pd.to_numeric(serie_base, errors="coerce")
+                    percent = serie_numeric.notna().mean()
+                    if percent>0.90:
+                        self.df[col] = pd.to_datetime(
+                            serie_base, unit="D", origin="1899-12-30", errors="coerce"
                         )
-                        resultado = s_converted.where(s_converted.notna(), s_base)
-                        resultado = resultado.dt.strftime("%d-%b-%y")
-                        self.df[col] = resultado
+                        converted =True
+                    else:
+                        serie_converted = pd.to_datetime(serie_base,format=formato,errors="coerce")
+                        percent_date = serie_converted.notna().mean()
+                        if percent_date>0.90:
+                            self.df[col] = serie_converted
+                            converted = True
+                        else:
+                            print(f"No convertimos {col}")
+                        
+                    if converted == True:
+                        # print(f"Convertimos a fecha: [{i}]-[{col}]")
                         self.log.append(f"date_change[{i}]-[{col}]")
                         self.non_numeric_columns.append(col)
-                    except:
-                        # self.log.append(f"Unable to change date[{i}]-[{col}]")
-                        pass
+                        self.date_columns.append(col)
         else:
             col = col_name
             i = self.df.columns.get_loc(col)
@@ -142,15 +155,17 @@ class ReporteDf:
                     serie_converted = pd.to_datetime(
                         serie_converted, unit="D", origin="1899-12-30", errors="coerce"
                     )
-                    print("Serie convertida de excel")
+                    # print("Serie convertida de excel")
                     self.df[col] = serie_converted
                     self.log.append(f"date_change[{i}]-[{col}]")
                     self.non_numeric_columns.append(col)
+                    self.date_columns.append(col)
             except Exception as e:
                 print("Serie convertida de texto")
                 serie_converted = pd.to_datetime(serie_base, errors="coerce", format=formato)
                 self.log.append(f"date_change[{i}]-[{col}]")
                 self.non_numeric_columns.append(col)
+                self.date_columns.append(col)
             self.df_ui = self.df.copy()
         return self
 
@@ -185,11 +200,17 @@ class ReporteDf:
             serie = self.df[col].dropna().astype(str).str.strip()
             serie = serie[serie != ""]
             avg_len = serie.str.len().mean()
+            if "Bank" in col:
+                # print(avg_len)
+                pass
             
             if porcentaje_numerico>0.95 and avg_len< 15:
                 self.df[col] = serie_converted
                 self.log.append(f"number_change[{i}]-[{col}]")
                 self.numeric_columns.append(col)
+                if "Bank" in col:
+                    # print("Aquí")
+                    pass
 
         ##Los restantes, los tratamos de convertir
         for i, col in enumerate(self.df.columns): ##object = not defined data type
@@ -229,6 +250,8 @@ class ReporteDf:
                     self.df[col] = serie_converted
                     self.numeric_columns.append(col)
                     self.log.append(f"number_change[{i}]-[{col}]")
+                    if "Bank" in col:
+                        print("Here")
                 else:
                     self.non_numeric_columns.append(col)
             else:
