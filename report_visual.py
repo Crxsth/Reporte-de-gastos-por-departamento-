@@ -16,16 +16,11 @@ Header: ["Report ID", "Department", "Employee", "Report Type", "Amount", "Transa
 """
 import time
 import pandas as pd
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
-import zipfile
-from functools import partial
-import tkinter as tk
-from tkinter import filedialog
 import streamlit as st
+##Importamos streamlit solo si es main()
 import sys
-import os
 import re
 from datetime import date
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
@@ -572,4 +567,5 @@ def report_render():
             st.write(f"Valor seleccionado: {valor}")
 
 if __name__ == "__main__":
+    import streamlit as st
     report_render()

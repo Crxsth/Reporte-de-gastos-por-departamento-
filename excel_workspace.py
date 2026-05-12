@@ -31,18 +31,28 @@ def vista_previa(df, n_default=20, titulo=None, key=None):
         st.dataframe(df.head(n_rows), column_config=col_dict, hide_index=True)
         
 def workspace_render():
-    archivo_base, archivo_id = ui.obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos
     ss = st.session_state
-    
-    if archivo_base is None:
-        st.stop()
-    if "archivo_id" not in ss: ##Lo inicializamos si no existía
-        ss.archivo_id = None
-    resultado = archivo_id.rsplit(".", 1)[0] #Obtener el name sin .xlsx
+    st.write("El objetivo de esta página es reducir el trabajo manual en archivos excel")
+    st.divider()
+    # archivo_base, archivo_id = ui.obtener_dataframe() ##Lee un [csv, xlsx, xlsm] y retorna un dataframe con los datos
+    # if archivo_base is None:
+        # st.stop()
+    # if "archivo_id" not in ss: ##Lo inicializamos si no existía
+        # ss.archivo_id = None
+    # resultado = archivo_id.rsplit(".", 1)[0] #Obtener el name sin .xlsx
     
     # st.dataframe(archivo_base)
-
-    vista_previa(archivo_base, n_default=20, titulo=resultado,key=archivo_id)
+    # vista_previa(archivo_base, n_default=20, titulo=resultado,key=archivo_id)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.button("
+    with col2:
+        st.write("My name is")
+    with col3:
+        st.write("My name iss")
+    with col4:
+        st.write("Slim shady")
     
     
 

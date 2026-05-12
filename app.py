@@ -210,8 +210,8 @@ def main():
         if st.button("Main Menu", width="stretch"):
             ss.page="menu"
         st.divider()
-        # if st.button("Excel workspace", width="stretch"):
-            # ss.page="Excel workspace"
+        if st.button("Excel workspace", width="stretch"):
+            ss.page="Excel workspace"
         if st.button("Reporte visual", width="stretch"):
             ss.page="report"
         # if st.button("Separar archivos", width="stretch"):
