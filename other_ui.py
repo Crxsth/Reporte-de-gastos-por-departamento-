@@ -44,3 +44,33 @@ def obtener_dataframe(texto= None, key=None, label=None): ##Function that select
     ss[id_key] = archivo_id
     
     return archivo_leido, archivo_id
+    
+    
+def vista_previa(df, n_default=20, titulo=None, key=None, n_max=100, n_min=5):
+    """Muestra una vista previa controlada del DataFrame."""
+    
+    if titulo is None:
+        titulo = "Vista Previa"
+
+    st.subheader(titulo)
+
+    total_rows = len(df)
+
+    if total_rows == 0:
+        st.info("El archivo no tiene filas para mostrar.")
+        return
+
+    min_rows = min(n_min, total_rows)
+    max_rows = min(n_max, total_rows)
+    default_rows = min(n_default, max_rows)
+
+    n_rows = st.slider(
+        "Número de filas a mostrar",
+        min_value=min_rows,
+        max_value=max_rows,
+        value=default_rows,
+        step=5,
+        key=f"slider_preview_{key}"
+    )
+
+    st.dataframe(df.head(n_rows), hide_index=True)
