@@ -74,3 +74,46 @@ def vista_previa(df, n_default=20, titulo=None, key=None, n_max=100, n_min=5):
     )
 
     st.dataframe(df.head(n_rows), hide_index=True)
+
+
+def clear_page_state(keep_keys=None):
+    ss = st.session_state
+
+    if keep_keys is None:
+        keep_keys = []
+
+    # Keys globales que no se deben borrar
+    keep_keys = set(keep_keys)
+    keep_keys.add("page")
+    keep_keys.add("last_page")
+
+    # Página actual controlada por el router
+    current_page = ss.get("page", None)
+
+    # Si aún no hay página, no hace nada
+    if current_page is None:
+        print("Esto es none")
+        return
+
+    # Primera ejecución: guarda la página actual
+    if "last_page" not in ss:
+        print("Esto es not in")
+        ss.last_page = current_page
+        return
+
+    # Si cambió de página, limpia session_state
+    if ss.last_page != current_page:
+        print("Pues esto otro")
+        keys_to_delete = []
+
+        # Guarda las keys que sí se van a borrar
+        for key in list(ss.keys()):
+            if key not in keep_keys:
+                keys_to_delete.append(key)
+
+        # Borra las keys no globales
+        for key in keys_to_delete:
+            del ss[key]
+
+        # Actualiza la última página visitada
+        ss.last_page = current_page

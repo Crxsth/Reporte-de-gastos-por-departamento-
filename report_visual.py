@@ -495,6 +495,7 @@ def report_render():
     Esta función se ejecuta solo si el módulo es invocado directamente.
     """
     ss = st.session_state
+    st.set_page_config(layout="centered")
     Timer0 = time.time()
 
     

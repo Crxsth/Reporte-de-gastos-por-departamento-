@@ -123,6 +123,9 @@ def pagina_menu():
     st.title("Bienvenido")
     st.set_page_config(
     page_title="Dashboard Contable", layout = "centered", initial_sidebar_state="expanded")
+    ss = st.session_state
+    for key in list(ss.keys()):
+        del ss[key]
     st.markdown(
     """
     ### 👋 ¿Qué es este dashboard?
@@ -154,30 +157,6 @@ def pagina_menu():
     - Pensado para el día a día profesional  
 
     """)
-
-
-def obtener_dataframe(): ##Function that selects a file to work with. 
-    """
-    Abre un selector de archivos en Streamlit y llama al core para cargar el archivo.
-
-    Soporta archivos .csv, .xlsx y .xlsm.  
-    Si es CSV, lo lee con codificación 'latin-1'.  
-    Si es Excel, usa la función personalizada `leer_file()`.
-    Returns:
-        Datos cargados desde el archivo.
-    """
-    archivo_base = st.file_uploader( ##Devuelve un archivo en memoria.
-        "Selecciona el archivo de Excel o CSV",
-        type=["csv", "xlsx", "xlsm"]
-        )
-    st.info("Sube un archivo para continuar.")
-    
-    if not archivo_base:
-        return None, None
-    
-    archivo_id = getattr(archivo_base, "name", None)  # <- ID estable del upload
-    archivo_leido = core.load_file(archivo_base)
-    return archivo_leido, archivo_id
 
 
 def main():

@@ -112,6 +112,7 @@ def render_simple_rules():
 
 def render_conciliate():
     ss = st.session_state
+    st.set_page_config(layout="centered")
     print()
     t0 = time.time()
     hora = time.strftime("%H:%M:%S", time.localtime(t0))
@@ -165,6 +166,15 @@ def render_conciliate():
     ss.df_base = df_base
     ss.df_bank = df_bank
     
+    
+    ##Mostramos las tablas
+    col_df1, col_df2 = st.columns(2)
+    with col_df1:
+        st.write("Base")
+        st.dataframe(df_base)
+    with col_df2:
+        st.write("Bank")
+        st.dataframe(df_bank)
     
     ##Si es la primera vez, coloca estos por default
     if ss.first_run == True: ##Esto pone por default 2 columnas, sino pues no

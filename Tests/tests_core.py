@@ -29,7 +29,9 @@ if 1>0:
     ##Llamamos al conciliador:
     # def conciliador(df_base, df_bank, base_cols, bank_cols):
     base_list = ["R_TRANS_NO"]
+    base_list = ["Date","Amount"]
     bank_list = ["Reference number"]
+    bank_list = ["Date","Amount"]
     n = len(base_list)
     
     base_r = df_base[base_list]
