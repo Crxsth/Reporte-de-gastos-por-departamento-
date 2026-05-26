@@ -382,31 +382,29 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     bridge["base_idx"] = serie_var
 
     ##Se crea df_result:
-    df_result = df_bank[bank_cols_use].merge(bridge, how="left", on="bank_idx")
-    df_result = df_result.merge(df_base[base_cols],how="left",on="base_idx", suffixes=(" Bank"," Base"))
+    df_result = df_base[base_cols].merge(bridge, how="left", on="base_idx")
+    df_result = df_result.merge(df_bank[bank_cols_use],how="left",on="bank_idx", suffixes=(" Base"," Bank"))
     
-    ##Se crea df_matched / df_max
+    ##Se crea df_matched / df_max; que es el mejor match
     df_max = df_result[
         df_result["match_score"] == 
-        df_result.groupby("bank_idx")["match_score"].transform("max")
+        df_result.groupby("base_idx")["match_score"].transform("max")
     ].copy()
     n = len(base_cols)-1
-    df_max["confianza"] = (df_max["match_score"] / n)*100
-
-    
+    df_max["confianza"] = (df_max["match_score"] / n)*100    
 
     ##Se crea df_conciliation
-    df_conciliation = df_bank.merge(bridge,how="left", on="bank_idx")
-    df_conciliation = df_conciliation.merge(df_base,how="left",on="base_idx",suffixes=(" Bank"," Base"))
+    df_conciliation = df_base.merge(bridge,how="left", on="base_idx")
+    df_conciliation = df_conciliation.merge(df_bank,how="left",on="bank_idx",suffixes=(" Base"," Bank"))
     # df_conciliation = df_conciliation.groupby("bank_idx")["match_score"].transform("max")
     df_conciliation = df_conciliation[
         df_conciliation["match_score"] ==
-        df_conciliation.groupby("bank_idx")["match_score"].transform("max")
+        df_conciliation.groupby("base_idx")["match_score"].transform("max")
     ].copy()
     
     ##merged
-    df_merged = df_bank.merge(bridge,how="outer", on="bank_idx")
-    df_merged = df_merged.merge(df_base, how="outer", on="base_idx", suffixes=(" Bank", " Base"))
+    df_merged = df_base.merge(bridge,how="outer", on="base_idx")
+    df_merged = df_merged.merge(df_bank, how="outer", on="bank_idx", suffixes=(" Base", " Bank"))
     
     # df_result.to_csv("df_result.csv")
     return df_result, df_max, df_conciliation, df_merged
