@@ -171,24 +171,29 @@ def render_conciliate():
     col_df1, col_df2 = st.columns(2)
     with col_df1:
         st.write("Base")
-        st.dataframe(df_base)
+        # st.dataframe(df_base)
+        ui.vista_previa(df_base, titulo="Base", key= "base", n_max=len(df_base))
     with col_df2:
         st.write("Bank")
-        st.dataframe(df_bank)
+        # st.dataframe(df_bank)
+        ui.vista_previa(df_bank, titulo="Bank", key="bank", n_max=len(df_bank))
     
     ##Si es la primera vez, coloca estos por default
     if ss.first_run == True: ##Esto pone por default 2 columnas, sino pues no
-        try:
-            date_col = next(x for x in df_base.columns if "date" in x.lower()) ##Obtenemos la columna con la palabra 'date'
-            ss["df1_col_0"] = next(c for c in df_base.columns if "date" in c.lower())
-            ss["df2_col_0"] = next(c for c in df_bank.columns if "date" in c.lower())
-            
-            ss["df1_col_1"] = next(c for c in df_base.columns if "amount" in c.lower())
-            ss["df2_col_1"] = next(x for x in df_bank.columns if "amount" in x.lower())
+        base_date_col = next((c for c in df_base.columns if "date" in c.lower()), None)
+        bank_date_col = next((c for c in df_bank.columns if "date" in c.lower()), None)
+        if base_date_col is not None and bank_date_col is not None:
+            ss["df1_col_0"] = base_date_col
+            ss["df2_col_0"] = bank_date_col
             ss.first_run = False  # 🔒
-        except Exception as e:
-            st.write(e)
-            st.write("Pues no sé we, algo salió mal")
+        
+        base_amount_col = next((c for c in df_base.columns if "amount" in c.lower()),None)
+        bank_amount_col = next((c for c in df_bank.columns if "amount" in c.lower()),None)
+        if base_amount_col is not None and bank_amount_col is not None:
+            ss["df1_col_1"] = base_amount_col
+            ss["df2_col_1"] = bank_amount_col
+            ss.first_run = False  # 🔒
+        
             
     ##Aquí se llama a las funciones que renderizan todo en advanced or not
     st.divider()
@@ -237,7 +242,7 @@ def render_conciliate():
             df_result: bank[bank_cols], bridge, base[base_cols]
             df_max: df_result[match_score].max()
             df_conciliation: bank, bridge, base"""
-        df_result, df_max, df_conciliation = core.build_review_df(bridge, df_bank, df_base, bank_cols, base_cols)
+        df_result, df_max, df_conciliation, df_merged = core.build_review_df(bridge, df_bank, df_base, bank_cols, base_cols)
         
         df_matches = df_base.join(
             df_max.set_index("base_idx")[["match_score"]],
@@ -251,11 +256,12 @@ def render_conciliate():
         ss.df_max = df_max ##max (match)
         ss.df_matches = df_matches
         ss.df_unmatched = df_unmatched
-        ss.df_conciliation = df_conciliation ##Merged completo
+        ss.df_conciliation = df_conciliation ##Conciliación; no se eliminan columnas pero solo se mantienen montos máximo
+        ss.df_merged = df_merged ##Merged completo
         
     ##Hacemos un merge de banco > ERP
     
-    if ss.conciliado==True and ss.df_max is not None:
+    if ss.conciliado==True and "df_max" in ss and ss.df_max is not None:
         st.dataframe(ss.df_max)
         
         st.success("Se han hecho conciliaciones, elija los archivos que desee descargar")
@@ -263,6 +269,10 @@ def render_conciliate():
         """Para hacer la conciliación se revisan y comparan las transacciones basado en las columnas seleccionadas.
         Luego se eligen las transacciones con puntajes más altos.
         """)
+        
+        ##Se re-añaden
+        df_merged = ss.df_merged
+        ##To bytes
         df_result = ss.df_result
         df_matches = ss.df_matches
         df_unmatched = ss.df_unmatched
@@ -271,6 +281,7 @@ def render_conciliate():
         df_matches_bytes = df_matches.to_csv(index=False).encode("utf-8")
         df_unmatched_bytes = df_unmatched.to_csv(index=False).encode("utf-8")
         df_conciliation_bytes = df_conciliation.to_csv(index=False).encode("utf-8")
+        df_merged_bytes = df_merged.to_csv(index=False).encode("utf-8")
         
         st.divider()
         result1, result2, result3 = st.columns(3)
@@ -288,6 +299,22 @@ def render_conciliate():
             st.info("Este archivo contiene las posibles coincidencias entre ambas tablas y muestra solo las columnas seleccionadas.")
             if clicked:
                 st.success("Descargando...")
+                
+            ##df merged
+            clicked_merged = st.download_button(
+                label="Descargar archivo 'Merged' / 'df_merged'",
+                data=df_merged_bytes,
+                file_name="Merged.csv",
+                mime="text/csv",
+                key="download_df_merged",
+                help="Archivo que contiene ambas tablas unidas en un solo resultado.",
+                width="stretch"
+            )
+            st.info("Este archivo contiene el resultado de unir ambas tablas con las columnas preservadas.")
+            if clicked_merged:
+                st.success("Descargando...")
+                
+            
         with result2:
             clicked2 = st.download_button(
                 label = "Descargar Archivo conciliado",

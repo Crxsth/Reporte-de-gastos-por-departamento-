@@ -404,5 +404,9 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
         df_conciliation.groupby("bank_idx")["match_score"].transform("max")
     ].copy()
     
+    ##merged
+    df_merged = df_bank.merge(bridge,how="outer", on="bank_idx")
+    df_merged = df_merged.merge(df_base, how="outer", on="base_idx", suffixes=(" Bank", " Base"))
+    
     # df_result.to_csv("df_result.csv")
-    return df_result, df_max, df_conciliation
+    return df_result, df_max, df_conciliation, df_merged

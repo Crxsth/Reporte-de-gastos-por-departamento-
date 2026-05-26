@@ -229,7 +229,10 @@ def main():
     
     # st.write("ss")
     # st.write(ss)
-    log_render_time(time.perf_counter() - start)
+    try:
+        log_render_time(time.perf_counter() - start)
+    except:
+        pass
     tend = time.time()
     timer_end = tend-tmain
     print(f"Tiempo main to end: {timer_end:.4}")
