@@ -4,9 +4,6 @@ import core
 import other_ui as ui
 
    
-DEV_MODE = True
-
-   
 def workspace_render():
     ss = st.session_state
     st.set_page_config(layout="wide")
@@ -19,16 +16,23 @@ def workspace_render():
         # current_page="excel_workspace",
         # keep_keys=["page", "current_page"]
     # )
+    DEV_MODE = False
     
     # st.divider()
     
     # st.write(ss)
     ##Permite añadir un archivo
+    st.write(f"Dev mode bro: {DEV_MODE}")
     if DEV_MODE == True:
-        ruta_dev = r"C:\Users\criis\Documents\Coding\Report\Tests\Datos_base.csv"
-        archivo_base = core.load_file(ruta_dev)
-        archivo_id = "Datos_base.csv"
-    else:
+        try:
+            ruta_dev = r"C:\Users\criis\Documents\Coding\Report\Tests\Datos_base.csv"
+            archivo_base = core.load_file(ruta_dev)
+            archivo_id = "Datos_base.csv"
+        except Exception as e:
+            DEV_MODE = False
+            pass
+    
+    if DEV_MODE == False:
         archivo_base, archivo_id = ui.obtener_dataframe(label="Data", key="base")
         if "last_uploaded_file_base" not in st.session_state:
             st.session_state.last_uploaded_file_base = None

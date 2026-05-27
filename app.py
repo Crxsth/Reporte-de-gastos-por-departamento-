@@ -21,8 +21,8 @@ from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inline
 t1 = time.time()
 timer_imports = t1-t0
 timer_imports_py = tx-t0
-# print(f"Tiempo solo imports: {timer_imports:.4}")
-# print(f"Tiempo solo imports no custom: {timer_imports_py:.4}")
+print(f"Tiempo solo imports: {timer_imports:.4}")
+print(f"Tiempo solo imports no custom: {timer_imports_py:.4}")
 
 
 def save_exec_times_to_csv(csv_path="exec_time.csv"):
@@ -206,7 +206,7 @@ def main():
             ss.first_run = True
     tsidebar = time.time()
     timer_sidebar = tsidebar-tmain
-    # print(f"Tiempo main to sidebar: {timer_sidebar}")
+    print(f"Tiempo main to sidebar: {timer_sidebar}")
     
     if ss.page not in ss:
         page="menu"

@@ -374,6 +374,7 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     base_cols = base_cols.copy()
     base_cols.insert(0,"base_idx")
     bank_cols_use = ["bank_idx"] + bank_cols
+    bridge_cols = bridge.columns
     
     
     ##Cambiamos posicion de 'base_idx' en bridge
@@ -404,7 +405,8 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     
     ##merged
     df_merged = df_base.merge(bridge,how="outer", on="base_idx")
-    df_merged = df_merged.merge(df_bank, how="outer", on="bank_idx", suffixes=(" Base", " Bank"))
-    
+    df_merged = df_merged.merge(df_bank, how="outer", on="bank_idx", suffixes=(" Base", " Bank"), indicator=True)
+    df_merged = df_merged.drop(columns=bridge_cols, errors="ignore")
+    df_merged = df_merged.rename(columns={"Result": "Origen"})
     # df_result.to_csv("df_result.csv")
     return df_result, df_max, df_conciliation, df_merged
