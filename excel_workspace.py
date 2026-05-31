@@ -3,26 +3,11 @@ import sys
 import core
 import other_ui as ui
 
-   
-def workspace_render():
-    ss = st.session_state
-    st.set_page_config(layout="wide")
-    st.write("El objetivo de esta página es reducir el trabajo manual en archivos excel")
-    
-    print("Limpiamos keys, pasamos a excel workspace")
-    keep_keys = []
-    ui.clear_page_state()
-    # ui.clear_page_state(
-        # current_page="excel_workspace",
-        # keep_keys=["page", "current_page"]
-    # )
-    DEV_MODE = False
-    
-    # st.divider()
-    
-    # st.write(ss)
-    ##Permite añadir un archivo
-    st.write(f"Dev mode bro: {DEV_MODE}")
+
+DEV_MODE = False
+
+def tests():
+    ##Esto hacía una limpieza temporal basada en un archivo
     if DEV_MODE == True:
         try:
             ruta_dev = r"C:\Users\criis\Documents\Coding\Report\Tests\Datos_base.csv"
@@ -48,7 +33,6 @@ def workspace_render():
             
             
             ##Corregimos header, date & numero en automático
-            
             if "df_key" not in ss:
                 core_obj_df_fixed = core.ReporteDf(archivo_base,name="Data_fixed").fix_header() 
                 try:
@@ -88,6 +72,83 @@ def workspace_render():
                 st.write("Slim shady")
     else:
         st.write("No hay archivo todavía")
+
+
+def agrupar_datos():
+    ss = st.session_state
+    st.set_page_config(layout="centered")
+    st.subheader("Agrupar")
+    st.write("""Esta sección permite agrupar teniendo en cuenta dos columnas: Columna 'nombre' y columna monto.
+        Es decir, si tuviera una tabla con 500 datos de 10 proveedores distintos y sus cargos, se agruparían a 10 filas con cada proveedor y sus totales.""")
+    st.divider()
+    
+    ##Agrupación
+    ui.obtener_dataframe(key="base")
+    
+
+def workspace_render():
+    ##Variables iniciales
+    ss = st.session_state
+    st.set_page_config(layout="centered")
+    
+    st.write(ss)
+    print("Pasamos a excel workspace, no limpiamos keys al manejarse con diversas páginas internas")
+    keep_keys = []
+    
+    ##sesion state que indica qué 
+    if "workspace_view" not in ss:
+        ss.workspace_view = "menu"
+    
+    if ss.workspace_view == "menu":
+        st.write("El objetivo de esta página es reducir el trabajo manual en archivos excel")
+        st.divider()
+        
+        ##ChatGPT me recomendó 
+        opciones = [
+        {
+            "boton": "Agrupar datos",
+            "vista": "agrupar",
+            "texto": (
+                "Agrupa transacciones individuales por una o más columnas y calcula totales, "
+                "conteos o promedios. Útil cuando tienes datos por línea y quieres resumirlos."
+            )
+        },
+        {
+            "boton": "Buscar datos",
+            "vista": "buscar",
+            "texto": (
+                "Busca valores, palabras o patrones dentro de una tabla. Útil para encontrar "
+                "transacciones específicas sin revisar todo manualmente."
+            )
+        },
+        {
+            "boton": "Limpiar datos",
+            "vista": "limpiar",
+            "texto": (
+                "Permite preparar información eliminando columnas, filas vacías o datos que "
+                "no necesitas antes de exportar."
+            )
+        }
+    ]
+
+    for opcion in opciones:
+        col_btn, col_text = st.columns([1, 4], border=True)
+
+        with col_btn:
+            if st.button(opcion["boton"], width="stretch"):
+                ui.clear_page_state(keep_keys=["page", "workspace_view"])
+                ss.workspace_view = opcion["vista"]
+                st.rerun()
+
+        with col_text:
+            st.write(opcion["texto"])
+            
+    ##Se llama a las funciones con tools específicas
+    # elif ss.workspace_view == "agrupar":
+        # agrupar_datos()
+    # st.write(ss)
+    ##Permite añadir un archivo
+    
     
     
     st.stop()

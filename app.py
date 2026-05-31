@@ -93,6 +93,7 @@ def fade_in_func(text):
 
 def render_client_timer(_key: str):
     ##Yes, timerx2 by ChatGPT as idc enough x2
+    
     nonce = int(time.time() * 1000)  # cambia en cada rerun
     components.html(
         f"""
@@ -173,14 +174,14 @@ def main():
 
     ##Contador 
     ss.contador_main = ss.get("contador_main", 0) + 1
-    render_client_timer("timer_data")
+    # render_client_timer("timer_data")
     if ss.contador_main %10 ==0:
         try:
             save_exec_times_to_csv()
         except:
             pass
     
-    st.write(f"ejecuciones we: {ss.contador_main}")
+    # st.write(f"ejecuciones we: {ss.contador_main}")
 
     with st.sidebar:
         st.title("Herramientas", text_alignment="center")

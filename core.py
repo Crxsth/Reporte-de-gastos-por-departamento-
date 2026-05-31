@@ -317,6 +317,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     
     """
     timer1 = time.time()
+    error = None
     
     df_base = df_base.copy()
     df_bank = df_bank.copy()
@@ -347,14 +348,25 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     bridge = bridge.fillna(0)
     
     ##Score: colocamos la columna con suma, y dropeamos dejamos solo los >0
-    bridge["match_score"] = bridge[match_cols].sum(axis=1)
+    try:
+        bridge["match_score"] = bridge[match_cols].sum(axis=1)
+    except KeyError as e:
+        error = {
+            "tipo": "KeyError",
+            "mensaje": "No se pudo calcular el puntaje de conciliación.",
+            "columnas_esperadas": match_cols,
+            "columnas_existentes": list(bridge.columns),
+            "detalle": str(e)
+        }
+        print(error)
+        return None, error
     bridge = bridge[bridge["match_score"] > 0]
     ##bridge es como un bridge. Contiene los índices, valor buscado y los puntos
     ##df_base["bank_idx", "base_idx", "valor buscado", "Date match", "Amount match", "match_score"]
     timer2 = time.time()
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
-    return bridge
+    return bridge, error
 
 def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     """Construye los dataframes usados para el conciliador:
@@ -394,7 +406,9 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     n = len(base_cols)-1
     df_max["confianza"] = (df_max["match_score"] / n)*100    
 
-    ##Se crea df_conciliation
+    """df_conciliation: tabla conciliada y conserva solo el mejor match por cada registro de la base.
+        Usa 'left', es decir, la izqueirda como base.
+    """
     df_conciliation = df_base.merge(bridge,how="left", on="base_idx")
     df_conciliation = df_conciliation.merge(df_bank,how="left",on="bank_idx",suffixes=(" Base"," Bank"))
     # df_conciliation = df_conciliation.groupby("bank_idx")["match_score"].transform("max")
@@ -403,10 +417,10 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
         df_conciliation.groupby("base_idx")["match_score"].transform("max")
     ].copy()
     
-    ##merged
+    ##merged: archivo que une ambas tablas con toda la información
     df_merged = df_base.merge(bridge,how="outer", on="base_idx")
     df_merged = df_merged.merge(df_bank, how="outer", on="bank_idx", suffixes=(" Base", " Bank"), indicator=True)
-    df_merged = df_merged.drop(columns=bridge_cols, errors="ignore")
+    # df_merged = df_merged.drop(columns=bridge_cols, errors="ignore")
     df_merged = df_merged.rename(columns={"Result": "Origen"})
     # df_result.to_csv("df_result.csv")
     return df_result, df_max, df_conciliation, df_merged

@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import time
 
-DEV_MODE = False  # ⬅️ cambia a False cuando ya no lo quieras
+DEV_MODE = True  # ⬅️ cambia a False cuando ya no lo quieras
 
 DEV_PATH = Path(r"C:\Users\criis\Documents\Coding\Conciliation")
 DEV_BASE = DEV_PATH / "Datos1.csv"
@@ -84,14 +84,14 @@ def render_simple_rules():
     df_bank = ss.get("df_bank")
     # st.write(f"Columnas del banco: {df_bank}")
     
-    ##3 buttons
-    title1, title2, title3 = st.columns(3)
-    with title1:
-        st.button("Perfect match", key="title1_match", width="stretch")
-    with title2:
-        st.button("Suma",key="title2_suma", width="stretch")
-    with title3:
-        st.button("All", key="title3_all", width="stretch")
+    ##3 buttons ; Hide for now
+    # title1, title2, title3 = st.columns(3)
+    # with title1:
+        # st.button("Perfect match", key="title1_match", width="stretch")
+    # with title2:
+        # st.button("Suma",key="title2_suma", width="stretch")
+    # with title3:
+        # st.button("All", key="title3_all", width="stretch")
     
     
     ##Titles
@@ -112,22 +112,40 @@ def render_simple_rules():
 
 def render_conciliate():
     ss = st.session_state
-    st.set_page_config(layout="centered")
+    toggle1, toggle2 = st.columns(2)
+    ##Toggle para cambiar la visualización
+    with toggle1:
+        if "advanced_settings" not in ss:
+            ss.advanced_settings = False
+        st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
+    ##Modo ancho toggle & ss:
+    with toggle2:
+        if "app_layout" not in ss:
+            ss.app_layout = "centered"
+        wide_mode = st.toggle(
+            "Modo ancho",
+            value=ss.app_layout == "wide"
+        )
+        st.set_page_config(
+            page_title="Dashboard Contable",
+            layout=ss.app_layout,
+            initial_sidebar_state="expanded"
+        )
+        new_layout = "wide" if wide_mode else "centered"
+        if new_layout != ss.app_layout:
+            ss.app_layout = new_layout
+            st.rerun()
     print()
     t0 = time.time()
     hora = time.strftime("%H:%M:%S", time.localtime(t0))
     print(f"Rerun starts here: {hora}")
     
     ##File uploader
-    col_data_base, col_data_bank = st.columns(2)
-    
+    col_data_base, col_data_bank = st.columns(2)    
     if "first_run" not in ss:
         ss.first_run = True
     
-    ##Toggle para cambiar la visualización
-    if "advanced_settings" not in ss:
-        ss.advanced_settings = False
-    st.toggle(label="Advanced settings", key="advanced_settings", help="Allows you to create specific searches")
+    
     # st.write(ss)
     
     ## Lector de archivos
@@ -232,12 +250,19 @@ def render_conciliate():
         bank_cols = [ss[f"df2_col_{i}"] for i in ss.rows]
         ##Llamada al conciliador
         with st.spinner("Conciliando datos... "):
-            bridge = core.conciliador(
+            bridge, error = core.conciliador(
                 df_base=df_base,
                 df_bank=df_bank,
                 base_cols=base_cols,
                 bank_cols=bank_cols
             )
+        ##Atrapamos errores corregibles
+        if error is not None:
+            if error["tipo"] == "KeyError":
+                st.error("Error de columnas, por favor revise que las columnas que eligió "
+                    "para la conciliación sean correctas, no repetidas y vuelva a ejecutar el código"
+                )
+            st.stop()
         """Merge los df: 
             df_result: bank[bank_cols], bridge, base[base_cols]
             df_max: df_result[match_score].max()
@@ -277,70 +302,92 @@ def render_conciliate():
         df_matches = ss.df_matches
         df_unmatched = ss.df_unmatched
         df_conciliation = ss.df_conciliation
+        df_max = ss.df_max
         df_result_bytes = df_result.to_csv(index=False).encode("utf-8")
         df_matches_bytes = df_matches.to_csv(index=False).encode("utf-8")
         df_unmatched_bytes = df_unmatched.to_csv(index=False).encode("utf-8")
         df_conciliation_bytes = df_conciliation.to_csv(index=False).encode("utf-8")
         df_merged_bytes = df_merged.to_csv(index=False).encode("utf-8")
+        df_max_bytes = df_max.to_csv(index=False).encode("utf-8")
         
         st.divider()
-        result1, result2, result3 = st.columns(3)
-        # result1, result2 = st.columns(2)
-        with result1:
-            clicked = st.download_button(
-                label= "Descargar archivo 'Possible_matches' / 'df_result'",
-                data= df_result_bytes, 
-                file_name = "Possible_matches.csv",
-                mime= "text/csv",
-                key="download_df_result",
-                help= "Archivo que contiene todas las posibles coincidencias",
-                width="stretch"
-            )
-            st.info("Este archivo contiene las posibles coincidencias entre ambas tablas y muestra solo las columnas seleccionadas.")
-            if clicked:
-                st.success("Descargando...")
-                
-            ##df merged
-            clicked_merged = st.download_button(
-                label="Descargar archivo 'Merged' / 'df_merged'",
-                data=df_merged_bytes,
-                file_name="Merged.csv",
-                mime="text/csv",
-                key="download_df_merged",
-                help="Archivo que contiene ambas tablas unidas en un solo resultado.",
-                width="stretch"
-            )
-            st.info("Este archivo contiene el resultado de unir ambas tablas con las columnas preservadas.")
-            if clicked_merged:
-                st.success("Descargando...")
-                
+        # result1, result2, result3 = st.columns(3)
+        opciones = [
+            {"label": "Descargar archivo Posible_matches",
+                "data": df_result_bytes,
+                "file_name": "Possible_matches.csv",
+                "mime": "text/csv",
+                "key": "download_df_result",
+                "help": "Archivo que contiene todas las posibles coincidencias.",
+                "info": "Este archivo contiene las posibles coincidencias entre ambas tablas y muestra solo las columnas seleccionadas arriba. Es muy probable que se repitan filas, así que tiene que revisar la puntuación y discernir.",
+                "nota": None
+            },
+            {"label": "Descargar archivo 'Merged'",
+                "data": df_merged_bytes,
+                "file_name": "Merged.csv",
+                "mime": "text/csv",
+                "key": "download_df_merged",
+                "help": "Archivo que contiene ambas tablas unidas en un solo resultado.",
+                "info": "Archivo que une ambas tablas e incluye todos los posibles registros basados en las columnas. Mantiene todas las coincidencias entre ambas tablas.",
+                "nota": None
+            },
+            {"label": "Descargar Archivo conciliado",
+                "data": df_conciliation_bytes,
+                "file_name": "Matched file.csv",
+                "mime": "text/csv",
+                "key": "download_df_conciliated",
+                "help": "Tablas unidas, relación 1:1",
+                "info": "Archivo que une ambas tablas y muestra los puntajes. Mantiene coincidencias de base.",
+            },
+            {"label": "Descargar 'Unmatched' data",
+                "data": df_unmatched_bytes,
+                "file_name": "Unmatched data.csv",
+                "mime": "text/csv",
+                "key": "download_df_unmatched",
+                "help": "Archivo que contiene datos que no tuvieron match",
+                "info": "Este archivo contiene los datos que no se pudieron conciliar ni recibieron puntajes.",
+                "nota": None
+            },
+            {"label": "Descargar archivo 'Max matches'",
+                "data": df_max_bytes,
+                "file_name": "Max_matches.csv",
+                "mime": "text/csv",
+                "key": "download_df_max",
+                "help": "Archivo que contiene el mejor match encontrado por cada registro.",
+                "info": "Archivo que contiene solo las columnas seleccionadas y la mejor coincidencia, no repetidos.",
+                "nota": None
+            },
+        ]
+
+        col_btn, col_text = st.columns([1, 4], border=True)
+
+        with col_btn:
+            st.markdown("**Botones**")
+
+        with col_text:
+            st.markdown("**Descripción**")
+            st.write("Se utiliza la tabla de la izquierda, 'base', como referencia para hacer las conciliaciones.")
+
+        for opcion in opciones:
+            col_btn, col_text = st.columns([1, 4], border=True)
+
+            with col_btn:
+                st.download_button(
+                    label=opcion["label"],
+                    data=opcion["data"],
+                    file_name=opcion["file_name"],
+                    mime=opcion["mime"],
+                    key=opcion["key"],
+                    help=opcion["help"],
+                    width="stretch"
+                )
+
+            with col_text:
+                st.info(opcion["info"])
+
+                # if opcion["nota"] is not None:
+                    # st.markdown(opcion["nota"])
             
-        with result2:
-            clicked2 = st.download_button(
-                label = "Descargar Archivo conciliado",
-                data = df_conciliation_bytes,
-                file_name = "Matched file.csv",
-                key="download_df_conciliated",
-                help="Archivo base con el añadido del match más probable",
-                width="stretch"
-            )
-            st.info("Este archivo une ambas tablas, en medio de ambas se encuentran los puntajes.")
-            st.markdown("**Nota:** Este reporte puede contener datos repetidos, favor de revisar.")
-            if clicked2:
-                st.success("Descargando...")
-        with result3:
-            clicked3 = st.download_button(
-                label = "Descargar 'Unmatched' data",
-                data = df_unmatched_bytes,
-                file_name = "Unmatched data.csv",
-                mime= "text/csv",
-                key = "download_df_unmatched",
-                help = "Archivo que contiene datos que no tuvieron match",
-                width = "stretch"
-            )
-            st.info("Este archivo contiene los datos que no se pudieron conciliar ni recibieron puntajes.")
-            if clicked3:
-                st.success("Descargando")
 
 if __name__ == "__main__":
     render_conciliate()
