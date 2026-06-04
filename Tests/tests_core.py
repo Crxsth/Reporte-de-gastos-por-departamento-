@@ -1,8 +1,9 @@
+import time
+t0 = time.time()
 import sys
 import os
 from pathlib import Path
-import time
-t0 = time.time()
+import pandas as pd
 
 # Ruta actual (tests/)
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -11,6 +12,9 @@ PROJECT_ROOT = CURRENT_DIR.parent
 # Agregar al sys.path
 sys.path.append(str(PROJECT_ROOT))
 import core
+t1 = time.time()
+tiempo_imports = t1-t0
+# print(f"Tiempo imports en tests: {tiempo_imports:,.2f}")
 
 if 1>0:
     """Usaremos esta sección para testear manualmente el conciliador de manera más rápida.
@@ -21,8 +25,26 @@ if 1>0:
     ruta_base = CURRENT_DIR / "Datos_base.csv"
     df_bank = core.load_file(ruta_banco)
     df_base = core.load_file(ruta_base)
-    banco = core.ReporteDf(df_bank).fix_header().fix_numbers().fix_dates()
-    base = core.ReporteDf(df_base).fix_header().fix_numbers().fix_dates()
+    banco = core.ReporteDf(df_bank).fix_header()
+    # banco.fix_numbers()
+    serie_converted = pd.to_datetime(banco.df["Date"],dayfirst=True)
+    banco.df["dt"] = serie_converted ##dt tiene fechas con número como si fuera excel
+    print(serie_converted)
+    banco.df["dt"] = (
+        pd.to_datetime(banco.df["dt"], errors="coerce")
+        - pd.Timestamp("1899-12-30")
+    ).dt.days
+    print("Trabajaremos con:")
+    print(banco.df)
+    banco.fix_dates()
+    
+    ##Testearé el funcionamiento de fix_dates()
+    exit()
+    base = core.ReporteDf(df_base)
+    base.fix_header()
+    base.fix_numbers()
+    base.fix_dates()
+    
     df_base =base.df
     df_bank = banco.df
     

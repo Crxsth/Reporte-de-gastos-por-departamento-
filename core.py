@@ -1,4 +1,5 @@
 import time
+t0 = time.time()
 import csv
 import io
 import numpy
@@ -7,6 +8,8 @@ from pathlib import Path
 import re
 import sys
 import warnings
+t1 = time.time()
+timer = t1-t0
 
 
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
@@ -42,7 +45,6 @@ class ReporteDf:
         self.non_numeric_columns = []
         self.empty_columns = []
         self.date_columns = []
-        
 
     def fix_header(self):
         """
@@ -108,7 +110,7 @@ class ReporteDf:
         self.df = df
         return self
 
-    def fix_dates(self, col_name=None,formato=None):
+    def fix_dates(self, col_name=None,formato=None, errors=None):
         """
         Convierte columnas que contengan la palabra 'date' a formato de fecha legible.
 
@@ -118,55 +120,69 @@ class ReporteDf:
         Returns:
             ReporteDf: devuelve self para encadenar.
         """
+        
+        date_errors = errors ##coerce, raise, ignore
+        if date_errors is None:
+            date_errors = "coerce"
         converted = False
+        
+        ##Creamos una lista con las columnas sobre la cual intentar convertir a fecha
+        
+        columnas = []
         if col_name == None:
-            for i, col in enumerate(self.df.columns):
-                if "date" in col.lower():
-                    serie_base = self.df[col]
-                    serie_numeric = pd.to_numeric(serie_base, errors="coerce")
-                    percent = serie_numeric.notna().mean()
-                    if percent>0.90:
-                        self.df[col] = pd.to_datetime(
-                            serie_base, unit="D", origin="1899-12-30", errors="coerce"
-                        )
-                        converted =True
-                    else:
-                        serie_converted = pd.to_datetime(serie_base,format=formato,errors="coerce")
-                        percent_date = serie_converted.notna().mean()
-                        if percent_date>0.90:
-                            self.df[col] = serie_converted
-                            converted = True
-                        else:
-                            print(f"No convertimos {col}")
-                        
-                    if converted == True:
-                        # print(f"Convertimos a fecha: [{i}]-[{col}]")
-                        self.log.append(f"date_change[{i}]-[{col}]")
-                        self.non_numeric_columns.append(col)
-                        self.date_columns.append(col)
-        else:
-            col = col_name
-            i = self.df.columns.get_loc(col)
-            serie_base = self.df[col]
-            try: ##Si viene con formato excel, convertimos a fecha
-                serie_converted = pd.to_numeric(serie_base, errors="coerce")
-                percent = serie_converted.notna().mean()
-                if percent>0.95:
-                    serie_converted = pd.to_datetime(
-                        serie_converted, unit="D", origin="1899-12-30", errors="coerce"
-                    )
-                    # print("Serie convertida de excel")
+            print("None case")
+            for col in self.df.columns:
+                print(f"Revisando: {col}")
+                if "date" in col.lower() or "dt" in col.lower() or "fecha" in col.lower():
+                    columnas.append(col)
+        elif isinstance(col_name, str):
+            print("String case")
+            columnas.append(col_name)
+        elif isinstance(col_name, list):
+            columnas = col_name
+        print(f"Columnas: {columnas}")  
+        
+        
+        for i, col in enumerate(columnas):
+            ##Revisamos si la columna contiene mayoritariamente números, caso en el cual se convierte desde excel
+            serie_base = self.df[col].replace("",pd.NA)
+            serie_test = serie_base.dropna()
+            serie_numeric = pd.to_numeric(serie_base, errors="coerce")
+            percent = serie_numeric.dropna().notna().mean()
+            
+            if percent>0.90:
+                bool_numeric_col = True
+            else:
+                bool_numeric_col = False
+            
+            ##Convertimos a fecha, dependiendo de si es una columna numérica o no
+            if bool_numeric_col == True:
+                # serie_converted = pd.to_numeric(self.df[col], errors=date_errors)
+                self.df[col] = pd.to_datetime(
+                    serie_numeric, unit="D", origin="1899-12-30", errors=date_errors
+                )
+                converted =True
+            elif bool_numeric_col ==False:
+                serie_converted = pd.to_datetime(serie_base,format=formato,errors=date_errors)
+                percent_date = serie_converted.dropna().notna().mean()
+                if percent_date>0.90:
                     self.df[col] = serie_converted
-                    self.log.append(f"date_change[{i}]-[{col}]")
-                    self.non_numeric_columns.append(col)
-                    self.date_columns.append(col)
-            except Exception as e:
-                print("Serie convertida de texto")
-                serie_converted = pd.to_datetime(serie_base, errors="coerce", format=formato)
-                self.log.append(f"date_change[{i}]-[{col}]")
+                    converted = True
+                else:
+                    print(f"No convertimos {col}")
+                    pass
+                
+            if converted == True:
+                if bool_numeric_col == True: 
+                    x = "from number"
+                else:
+                    x = "from text"
+                self.log.append(f"date_change[{i}]-[{col}] {x}")
                 self.non_numeric_columns.append(col)
                 self.date_columns.append(col)
-            self.df_ui = self.df.copy()
+                self.data_list = [self.df.columns.tolist()] + self.df.values.tolist()
+            else:
+                self.log.append(f"date couldn't be changed: [{i}]-[{col}]")
         return self
 
     def fix_numbers(self):
@@ -367,6 +383,7 @@ def conciliador(df_base, df_bank, base_cols, bank_cols):
     tiempo = timer2-timer1
     print(f"Tiempo de ejecución: {tiempo:.4f}")
     return bridge, error
+
 
 def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     """Construye los dataframes usados para el conciliador:
