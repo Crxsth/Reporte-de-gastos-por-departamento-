@@ -110,7 +110,7 @@ class ReporteDf:
         self.df = df
         return self
 
-    def fix_dates(self, col_name=None,formato=None, errors=None):
+    def fix_dates(self, col_name=None,formato=None, errors=None, output=False):
         """
         Convierte columnas que contengan la palabra 'date' a formato de fecha legible.
 
@@ -130,17 +130,16 @@ class ReporteDf:
         
         columnas = []
         if col_name == None:
-            print("None case")
+            if output==True: print("None case")
             for col in self.df.columns:
-                print(f"Revisando: {col}")
                 if "date" in col.lower() or "dt" in col.lower() or "fecha" in col.lower():
                     columnas.append(col)
         elif isinstance(col_name, str):
-            print("String case")
+            if output==True: print("String case")
             columnas.append(col_name)
         elif isinstance(col_name, list):
+            if output==True: print("List case")
             columnas = col_name
-        print(f"Columnas: {columnas}")  
         
         
         for i, col in enumerate(columnas):
@@ -154,6 +153,7 @@ class ReporteDf:
                 bool_numeric_col = True
             else:
                 bool_numeric_col = False
+            if output==True: print(f"Col: {col} numeric: {bool_numeric_col}")
             
             ##Convertimos a fecha, dependiendo de si es una columna numérica o no
             if bool_numeric_col == True:
@@ -163,13 +163,16 @@ class ReporteDf:
                 )
                 converted =True
             elif bool_numeric_col ==False:
-                serie_converted = pd.to_datetime(serie_base,format=formato,errors=date_errors)
+                bool_dayfirst = detect_dayfirst(serie_base)
+                if output==True: print(f"{col}- dayfirst:{bool_dayfirst}")
+                exit()
+                serie_converted = pd.to_datetime(serie_base,format=formato,errors=date_errors, dayfirst=bool_dayfirst)
                 percent_date = serie_converted.dropna().notna().mean()
                 if percent_date>0.90:
                     self.df[col] = serie_converted
                     converted = True
                 else:
-                    print(f"No convertimos {col}")
+                    if output==True: print(f"No convertimos {col}")
                     pass
                 
             if converted == True:
@@ -440,4 +443,26 @@ def build_review_df(bridge, df_bank, df_base, bank_cols, base_cols):
     # df_merged = df_merged.drop(columns=bridge_cols, errors="ignore")
     df_merged = df_merged.rename(columns={"Result": "Origen"})
     # df_result.to_csv("df_result.csv")
+    
     return df_result, df_max, df_conciliation, df_merged
+
+
+def detect_dayfirst(serie):
+    serie_str = serie.dropna().astype(str).str.strip()
+
+    # Extrae fechas tipo 26/12/2025, 26-12-2025, 26.12.2025
+    extracted = serie_str.str.extract(r"^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})")
+
+    first_num = pd.to_numeric(extracted[0], errors="coerce")
+    second_num = pd.to_numeric(extracted[1], errors="coerce")
+
+    # Si el primer número es mayor a 12, claramente es día primero
+    dayfirst_hits = (first_num > 12).sum()
+
+    # Si el segundo número es mayor a 12, claramente es mes primero
+    monthfirst_hits = (second_num > 12).sum()
+
+    if dayfirst_hits > monthfirst_hits:
+        return True
+    else:
+        return False

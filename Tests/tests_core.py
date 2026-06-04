@@ -21,25 +21,27 @@ if 1>0:
     """
     ##Creación de la clase, limpieza de datos
     t0 = time.time()
+    bool_test_dates = True
+    
     ruta_banco = CURRENT_DIR / "Datos_banco.csv"
     ruta_base = CURRENT_DIR / "Datos_base.csv"
     df_bank = core.load_file(ruta_banco)
     df_base = core.load_file(ruta_base)
     banco = core.ReporteDf(df_bank).fix_header()
-    # banco.fix_numbers()
-    serie_converted = pd.to_datetime(banco.df["Date"],dayfirst=True)
-    banco.df["dt"] = serie_converted ##dt tiene fechas con número como si fuera excel
-    print(serie_converted)
-    banco.df["dt"] = (
-        pd.to_datetime(banco.df["dt"], errors="coerce")
-        - pd.Timestamp("1899-12-30")
-    ).dt.days
-    print("Trabajaremos con:")
-    print(banco.df)
-    banco.fix_dates()
-    
-    ##Testearé el funcionamiento de fix_dates()
-    exit()
+    if bool_test_dates == True:
+        serie_converted = pd.to_datetime(banco.df["Date"],dayfirst=True)
+        banco.df["dt"] = serie_converted ##dt tiene fechas con número como si fuera excel
+        print(serie_converted)
+        banco.df["dt"] = (
+            pd.to_datetime(banco.df["dt"], errors="coerce")
+            - pd.Timestamp("1899-12-30")
+        ).dt.days
+        print("Trabajaremos con:")
+        print(banco.df)
+        banco.fix_dates(output=True)
+        exit()
+    else:
+        banco.fix_numbers().fix_dates()
     base = core.ReporteDf(df_base)
     base.fix_header()
     base.fix_numbers()
