@@ -165,7 +165,6 @@ class ReporteDf:
             elif bool_numeric_col ==False:
                 bool_dayfirst = detect_dayfirst(serie_base)
                 if output==True: print(f"{col}- dayfirst:{bool_dayfirst}")
-                exit()
                 serie_converted = pd.to_datetime(serie_base,format=formato,errors=date_errors, dayfirst=bool_dayfirst)
                 percent_date = serie_converted.dropna().notna().mean()
                 if percent_date>0.90:
