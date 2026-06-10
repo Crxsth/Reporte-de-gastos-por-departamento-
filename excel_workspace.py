@@ -5,7 +5,7 @@ import other_ui as ui
 import time
 
 
-DEV_MODE = False
+DEV_MODE = True
 DEV_BASE = r"C:\Users\criis\Documents\Coding\Conciliation\Datos1.csv"
 
 
@@ -105,6 +105,7 @@ def agrupar_datos():
     core_object.fix_dates()
     core_object.fix_numbers()
     df = core_object.df
+    df.columns = df.columns.astype(str)
     ui.vista_previa(df, titulo="Archivo base", key= "base", n_max=len(df_base))
     # st.divider()
     
@@ -118,31 +119,56 @@ def agrupar_datos():
     columnas_categoricas = list(dict.fromkeys(core_object.non_numeric_columns))
     
     col_1, col_2 = st.columns([1, 4], border=True)
+    ss.col_cat = None ##Col categórica: Almacena el nombre ded la columan texto/date
+    ss.col_agg = None ##col agregación: Almacena nombre(s) de columnas numéricas a sumar
     with col_1:
         st.write("Elija la columna de texto a agrupar")
         col_nombre = st.selectbox(label="Elija columna de texto a agrupar", options=columnas_categoricas,
             key="col_nombre", placeholder="Select a column", label_visibility ="collapsed")
-    
+        ss.col_cat = col_nombre
     with col_2:
         st.write("Elija la columna numérica o de fecha a agrupar")
+        ##Placeholder text, para que el usuario vea las columnas seleccionadas.
+        text_placeholder = "Select a column"
+        if toggle_numeric:
+            text_placeholder = ", ".join(columnas_agregacion)
+        
         col_numero = st.multiselect(label="Elija columna numérica a agrupar", options=columnas_agregacion,
-            key="col_numero",placeholder="Select a column",label_visibility="collapsed",
-            disabled=toggle_numeric
+            key="col_numero",label_visibility="collapsed", placeholder=text_placeholder,
+            disabled=toggle_numeric ##Al tener 'toggle_numeric' se marcan todas las columnas numéricas, por lo cual no ocupamos que el usuario toque esto
         )
         if toggle_numeric == True:
             col_numero = columnas_agregacion
-        
+        ss.col_agg = col_numero
+    
     ##Agrupamos
     st.divider()
     if "df_group" not in ss:
         ss.df_group = None
-    if st.button(label="Run",key="button_run"):
-        st.write("Hi")
+    run = st.button(label="Run", key="button_run")
+    if run or ss.df_group is not None:
+        df_group = df.groupby(col_nombre)[columnas_agregacion].sum().reset_index()
+        ss.df_group = df_group
+        ui.vista_previa(df_group, titulo="Archivo resumido", key="result",n_max=len(df))
+        df_group_bytes = df_group.to_csv(index=False).encode("utf-8") ##Convertimos en bytes
         
-    
-    # st.selectbox(label, options, index=0, format_func=special_internal_function, 
-    # key=None, help=None, on_change=None, args=None, kwargs=None, *, placeholder=None, 
-    # disabled=False, label_visibility="visible", accept_new_options=False, filter_mode="fuzzy", width="stretch", bind=None)
+    ##Boton de descarga
+        col_btn, col_text = st.columns([1, 4], border=True)
+        with col_btn:
+            st.markdown("**Botón de descarga**")
+            st.download_button(
+                label="Descargar archivo resumido",
+                data=df_group_bytes,
+                file_name="Archivo_agrupado.csv",
+                mime="text/csv",
+                key="download_df_group",
+                width="stretch"
+            )
+
+        with col_text:
+            st.markdown("**Descripción**")
+            st.info(f"Este archivo contiene datos sumados por la columna seleccionada: {ss.col_agg}")
+            
     
     
     
