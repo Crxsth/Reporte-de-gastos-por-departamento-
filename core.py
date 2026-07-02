@@ -305,8 +305,12 @@ def load_file(archivo_base):
                 reader = csv.reader(f)
                 for fila in reader:
                     archivo_leido.append(fila)
-        else:##This exist when the program receives not a string or Path to read a file, but an object in memory.
-            contenido = io.StringIO(archivo_base.getvalue().decode(decodificador)) ##pasa de bytes a texto según chatgpt
+        else:##This exist when the program receives not a string or Path to read a file, but an object in memory
+            try:
+                contenido = io.StringIO(archivo_base.getvalue().decode(decodificador)) ##pasa de bytes a texto según chatgpt
+            except UnicodeDecodeError as e:
+                print(f"Error de decodificador, intentando con 'latin-1': {e}")
+                contenido = io.StringIO(archivo_base.getvalue().decode("latin-1"))
             reader = csv.reader(contenido)
             for fila in reader:
                 archivo_leido.append(fila)

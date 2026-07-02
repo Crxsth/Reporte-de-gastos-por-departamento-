@@ -16,6 +16,7 @@ sys.path.append(ruta_completa)
 tx= time.time()
 import excel_workspace #1
 import report_visual #2
+import unir #5
 import conciliador #8
 from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
 t1 = time.time()
@@ -196,8 +197,8 @@ def main():
             ss.page="report"
         # if st.button("Separar archivos", width="stretch"):
             # ss.page="separar"
-        # if st.button("Unir archivos", width="stretch"):
-            # ss.page="unir"
+        if st.button("Unir archivos", width="stretch"):
+            ss.page="unir"
         # if st.button("OCR", width="stretch"):
             # ss.page="ocr"
         # if st.button("7 i forgot", width = "stretch"):
@@ -222,6 +223,9 @@ def main():
     elif page=="report": ##2
         st.title("Reporte visual")
         report_visual.report_render()
+    elif page=="unir": ##5
+        st.title("Unir archivos")
+        unir.unir_render()
     elif page=="conciliate": ##8
         st.title("Conciliar")
         conciliador.render_conciliate()
