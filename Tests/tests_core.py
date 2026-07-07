@@ -7,16 +7,34 @@ import pandas as pd
 
 # Ruta actual (tests/)
 CURRENT_DIR = Path(__file__).resolve().parent
-# Subir un nivel → carpeta raíz del proyecto
 PROJECT_ROOT = CURRENT_DIR.parent
-# Agregar al sys.path
 sys.path.append(str(PROJECT_ROOT))
+sys.path.append(r"C:\Users\criis\Documents\Coding\Repositorio-git")
 import core
+from xlsx_reader import leer_file
 t1 = time.time()
 tiempo_imports = t1-t0
 # print(f"Tiempo imports en tests: {tiempo_imports:,.2f}")
 
+options = None
 if 1>0:
+    archivo = r"C:\Users\criis\Documents\Coding\Ejemplo Datos_5000_rows.xlsm"
+    # datos = pd.DataFrame(leer_file(archivo, hojas=0, output=True))
+    datos = leer_file(archivo,hojas=0,output=True)
+    # datos = leer_file(archivo,hojas="Base1",output=True)
+    df = pd.DataFrame(datos)
+    
+    try:
+        if datos:
+            print("Success")
+    except:
+        pass
+    
+    
+    
+    
+
+if -1>0:
     """Usaremos esta sección para testear manualmente el conciliador de manera más rápida.
     """
     ##Creación de la clase, limpieza de datos

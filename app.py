@@ -22,8 +22,8 @@ from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inline
 t1 = time.time()
 timer_imports = t1-t0
 timer_imports_py = tx-t0
-print(f"Tiempo solo imports: {timer_imports:.4}")
-print(f"Tiempo solo imports no custom: {timer_imports_py:.4}")
+# print(f"Tiempo solo imports: {timer_imports:.4}")
+# print(f"Tiempo solo imports no custom: {timer_imports_py:.4}")
 
 
 def save_exec_times_to_csv(csv_path="exec_time.csv"):
@@ -161,6 +161,15 @@ def pagina_menu():
     """)
 
 
+def go_page(new_page):
+    ss = st.session_state
+    keep = {"page", "render_times", "contador_main"}  # keys globales que NO quieres borrar
+    for key in list(ss.keys()):
+        if key not in keep:
+            del ss[key]
+    ss.page = new_page
+
+
 def main():
     tmain = time.time()
     ss = st.session_state
@@ -189,26 +198,31 @@ def main():
 
         st.divider()
         if st.button("Main Menu", width="stretch"):
-            ss.page="menu"
+            # ss.page="menu"
+            go_page("menu")
         st.divider()
         if st.button("Excel workspace", width="stretch"):
             ss.page="Excel workspace"
+            go_page("Excel workspace")
         if st.button("Reporte visual", width="stretch"):
-            ss.page="report"
+            # ss.page="report"
+            go_page("report")
         # if st.button("Separar archivos", width="stretch"):
             # ss.page="separar"
         if st.button("Unir archivos", width="stretch"):
-            ss.page="unir"
+            # ss.page="unir"
+            go_page("unir")
         # if st.button("OCR", width="stretch"):
             # ss.page="ocr"
         # if st.button("7 i forgot", width = "stretch"):
             # ss.page="7"
         if st.button("Conciliate", width = "stretch"):
-            ss.page="conciliate"
+            # ss.page="conciliate"
+            go_page("conciliate")
             ss.first_run = True
     tsidebar = time.time()
     timer_sidebar = tsidebar-tmain
-    print(f"Tiempo main to sidebar: {timer_sidebar}")
+    # print(f"Tiempo main to sidebar: {timer_sidebar}")
     
     if ss.page not in ss:
         page="menu"
@@ -219,7 +233,6 @@ def main():
     elif page=="Excel workspace": ##1
         st.title("Excel Workspace")
         excel_workspace.workspace_render()
-    
     elif page=="report": ##2
         st.title("Reporte visual")
         report_visual.report_render()
@@ -232,8 +245,6 @@ def main():
     else:
         st.write("JAJAJA NO LE SALIÓ")
     
-    # st.write("ss")
-    # st.write(ss)
     try:
         log_render_time(time.perf_counter() - start)
     except:

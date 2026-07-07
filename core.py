@@ -14,7 +14,7 @@ timer = t1-t0
 
 ruta_completa = r"C:\Users\criis\Documents\Coding\Repositorio-git"
 sys.path.append(ruta_completa)
-from xlsx_reader import leer_file ##Este es un lector de xlsx que no lee 'inlinestring'
+import xlsx_reader ##Este es un lector de xlsx que no lee 'inlinestring'
 
 
 class ReporteDf:
@@ -280,7 +280,7 @@ class ReporteDf:
         return self
 
 
-def load_file(archivo_base):
+def load_file(archivo_base, hoja=0):
     ##Lee un archivo, devuelve un df
     if isinstance(archivo_base, Path):
         nombre = str(archivo_base.name)
@@ -317,12 +317,47 @@ def load_file(archivo_base):
         archivo_leido = pd.DataFrame(archivo_leido)
     else:
         try:
-            archivo_leido = pd.DataFrame(leer_file(archivo_base)) ##Lo leemos con nuestro lector personalizado
-        except:
-            archivo_leido = pd.read_excel(archivo_base)
+            archivo_leido = pd.DataFrame(
+                xlsx_reader.leer_file(archivo_base, hojas=hoja)) ##Lo leemos con nuestro lector personalizado
+        except Exception as e:
+            print(f"Fallback a pandas por error en lector personalizado: {e}")
+            archivo_leido = pd.read_excel(archivo_base,sheet_name=hoja)
     
     return archivo_leido
     
+
+def get_sheet_names(archivo_base):
+    """
+    Recibe Path, str o archivo en memoria tipo Streamlit.
+    Devuelve lista de hojas si es Excel.
+    Si es CSV, devuelve lista vacía. ##By chatgpt based on "load_file()"
+    """
+
+    # Detectamos nombre
+    if isinstance(archivo_base, Path):
+        nombre = str(archivo_base.name)
+    elif isinstance(archivo_base, str):
+        nombre = archivo_base
+    else:
+        nombre = str(archivo_base.name)
+    nombre_lower = nombre.lower()
+    # Si es CSV, no hay hojas
+    if nombre_lower.endswith(".csv"):
+        return []
+    # Si es Excel
+    elif nombre_lower.endswith((".xlsx", ".xlsm")):
+        # Caso 1: ruta normal
+        if isinstance(archivo_base, (str, Path)):
+            excel_file = pd.ExcelFile(archivo_base)
+            return excel_file.sheet_names
+        # Caso 2: archivo en memoria / bytes / Streamlit
+        else:
+            raw = archivo_base.getvalue()
+            excel_file = pd.ExcelFile(io.BytesIO(raw))
+            return excel_file.sheet_names
+    else:
+        raise ValueError(f"Formato no soportado: {nombre}")
+
     
 def conciliador(df_base, df_bank, base_cols, bank_cols):
     """Concilia datos: Busca en df_bank y encuentra en df_base el dato más acertado

@@ -103,7 +103,6 @@ def clear_page_state(keep_keys=None):
 
     # Si cambió de página, limpia session_state
     if ss.last_page != current_page:
-        print("Pues esto otro")
         keys_to_delete = []
 
         # Guarda las keys que sí se van a borrar
@@ -117,3 +116,5 @@ def clear_page_state(keep_keys=None):
 
         # Actualiza la última página visitada
         ss.last_page = current_page
+        
+    ##Si presionamos de nuevo el botón de page, se debe limpiar el ss:
