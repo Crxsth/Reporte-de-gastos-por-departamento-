@@ -105,6 +105,17 @@ class ReporteDf:
         headers = [str(x) for x in df.iloc[0]]
         df = pd.DataFrame(df.iloc[1:].values, columns = headers)
         
+        ##Corregimos header duplicados
+        dict_dup_headers = {}
+        for i, nombre in enumerate(df.columns):
+            if nombre not in dict_dup_headers:
+                dict_dup_headers[nombre] = 0
+            else:
+                dict_dup_headers[nombre] +=1
+                rename = f"{nombre}_{dict_dup_headers[nombre]}"
+                df.columns.values[i] = rename
+                self.log.append(f"Duplicated name in header changed to {rename}")
+                
         self.log.append(f"Firstrow corrected to {best_i}. Largo de dict_idx (filas revisadas): {len(dict_idx)}")
         self.data_list = matrix
         self.df = df
@@ -504,3 +515,10 @@ def detect_dayfirst(serie):
         return True
     else:
         return False
+#
+#
+# def leer_pdf(archivo):
+    
+
+# if "__name__" == __main__:
+    # leer_pdf(r"C:\Users\criis\Documents\Coding\Report\Imagenes test\Centro Marzo.jpg")
