@@ -522,3 +522,65 @@ def detect_dayfirst(serie):
 
 # if "__name__" == __main__:
     # leer_pdf(r"C:\Users\criis\Documents\Coding\Report\Imagenes test\Centro Marzo.jpg")
+#
+#
+def match_text_dataframes(
+        df_base: pd.DataFrame,
+        df_compare: pd.DataFrame,
+        col_base: str,
+        col_compare: str
+    ) -> pd.DataFrame:
+    """Función con el objetivo de comparar dos columnas de dos dataframes y colocar su texto más posible
+    """
+    
+    ##Hacemos comparaciones
+    #Convierte las series en np.array()
+    base_names = df_base[col_base].str.strip().str.lower().to_numpy()
+    compare_names = df_compare[col_compare].str.strip().str.lower().to_numpy()
+    
+    matches = []
+    for description in compare_names:
+        fila = []
+        for name in base_names:
+            coincide = description in name or name in description
+            fila.append(coincide)
+        matches.append(fila)
+    match = np.array(matches)
+    
+    df_result = df_base[[col_base]].copy()
+    df_result["match_name"] = None
+    
+    ##Identificación de matches:
+    has_match = match.any(axis=0)
+    match_index = match.argmax(axis=0)
+    
+    # Índice del primer match por cada valor de df_base
+    match_index = match.argmax(axis=0)
+
+    # Agregamos la columna con el nombre encontrado
+    df_result["match_name"] = None
+
+    df_result.loc[has_match, "match_name"] = (
+        df_compare[col_compare]
+        .iloc[match_index[has_match]]
+        .to_numpy()
+    )
+    
+    ##Estadística
+    df_result["match_percent"] = None
+
+    for idx in df_result.index:
+        matched = df_result.loc[idx, "match_name"]
+        
+        if matched is not None:
+            base_text = str(df_result.loc[idx, col_base]).strip().lower()
+            compare_text = str(matched).strip().lower()
+            
+            score = SequenceMatcher(
+                None,
+                base_text,
+                compare_text
+            ).ratio()
+            
+            df_result.loc[idx, "match_percent"] = round(score * 100, 2)
+    return df_result
